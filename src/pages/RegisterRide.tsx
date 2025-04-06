@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -47,11 +46,10 @@ const formSchema = z.object({
   pickupTimeStart: z.string().min(1, { message: 'Please select a start time' }),
   pickupTimeEnd: z.string().min(1, { message: 'Please select an end time' }),
   carName: z.string().min(3, { message: 'Car name must be at least 3 characters' }),
-  seats: z.string().transform((val) => parseInt(val, 10)),
+  seats: z.coerce.number().min(1, { message: 'Must have at least 1 seat' }),
   isCourierAvailable: z.boolean().default(false),
-  luggageCapacity: z.string().optional()
-    .refine((val) => !val || !isNaN(parseInt(val, 10)), { message: 'Must be a number' })
-    .transform((val) => val ? parseInt(val, 10) : undefined),
+  luggageCapacity: z.coerce.number().optional()
+    .refine((val) => !val || !isNaN(val), { message: 'Must be a number' })
 });
 
 const RegisterRide = () => {
@@ -75,9 +73,9 @@ const RegisterRide = () => {
       pickupTimeStart: '',
       pickupTimeEnd: '',
       carName: '',
-      seats: '4',
+      seats: 4,
       isCourierAvailable: false,
-      luggageCapacity: '',
+      luggageCapacity: undefined,
     },
   });
 
@@ -372,6 +370,7 @@ const RegisterRide = () => {
                                 type="number" 
                                 placeholder="Max weight in kg" 
                                 {...field} 
+                                value={field.value ?? ''}
                                 disabled={isLoading}
                                 className="animated-btn"
                               />
