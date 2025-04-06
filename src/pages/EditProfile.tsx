@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { Save, User } from 'lucide-react';
+import { Save, User, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +28,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useUser } from '@/hooks/useUser';
+import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
@@ -38,6 +39,7 @@ const formSchema = z.object({
 
 const EditProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user, updateProfile } = useUser();
 
@@ -57,7 +59,7 @@ const EditProfile = () => {
       await updateProfile({
         name: values.name,
         phoneNumber: values.phoneNumber,
-        photoURL: values.photoURL,
+        photoURL: previewImage || values.photoURL,
       });
       toast.success('Profile updated successfully');
       navigate('/profile');
@@ -76,6 +78,19 @@ const EditProfile = () => {
       .toUpperCase();
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Convert to base64 for preview and storage
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setPreviewImage(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="container max-w-xl mx-auto py-10">
       <motion.div
@@ -86,11 +101,28 @@ const EditProfile = () => {
       >
         <Card className="glassmorphism">
           <CardHeader className="space-y-1">
-            <div className="flex items-center justify-center mb-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={user?.photoURL} alt={user?.name} />
+            <div className="flex flex-col items-center justify-center mb-4">
+              <Avatar className="h-24 w-24 mb-4">
+                <AvatarImage src={previewImage || user?.photoURL} alt={user?.name} />
                 <AvatarFallback>{user ? getInitials(user.name) : 'U'}</AvatarFallback>
               </Avatar>
+              
+              <div className="flex items-center">
+                <Label 
+                  htmlFor="profile-picture" 
+                  className="cursor-pointer flex items-center gap-2 text-sm font-medium px-4 py-2 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Photo
+                </Label>
+                <Input 
+                  id="profile-picture" 
+                  type="file" 
+                  accept="image/*"
+                  className="hidden" 
+                  onChange={handleImageChange}
+                />
+              </div>
             </div>
             <CardTitle className="text-2xl font-bold text-center">Edit Your Profile</CardTitle>
             <CardDescription className="text-center">
@@ -145,24 +177,6 @@ const EditProfile = () => {
                       <FormControl>
                         <Input 
                           placeholder="+1 (555) 123-4567" 
-                          {...field} 
-                          disabled={isLoading}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="photoURL"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Profile Photo URL</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="https://example.com/photo.jpg" 
                           {...field} 
                           value={field.value || ''}
                           disabled={isLoading}

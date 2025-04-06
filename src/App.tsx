@@ -16,6 +16,7 @@ import Profile from "./pages/Profile";
 import RegisterRide from "./pages/RegisterRide";
 import BookRide from "./pages/BookRide";
 import Messages from "./pages/Messages";
+import Conversation from "./pages/Conversation";
 import Settings from "./pages/Settings";
 import EditProfile from "./pages/EditProfile";
 import RequireAuth from "./components/auth/RequireAuth";
@@ -65,6 +66,11 @@ const App = () => (
                 <Route path="/messages" element={
                   <RequireAuth>
                     <Messages />
+                  </RequireAuth>
+                } />
+                <Route path="/messages/:id" element={
+                  <RequireAuth>
+                    <Conversation />
                   </RequireAuth>
                 } />
                 <Route path="/settings" element={

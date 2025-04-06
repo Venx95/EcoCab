@@ -6,6 +6,7 @@ export interface Ride {
   driverId: string;
   driverName: string;
   driverPhoto?: string;
+  driverPhone?: string; // Added driverPhone property
   pickupPoint: string;
   destination: string;
   pickupDate: string;
