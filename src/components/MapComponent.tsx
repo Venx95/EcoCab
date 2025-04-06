@@ -6,6 +6,7 @@ import { MapPin } from 'lucide-react';
 interface MapComponentProps {
   pickupPoint?: string;
   destination?: string;
+  height?: string;
 }
 
 declare global {
@@ -14,7 +15,7 @@ declare global {
   }
 }
 
-const MapComponent = ({ pickupPoint, destination }: MapComponentProps) => {
+const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponentProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -84,6 +85,15 @@ const MapComponent = ({ pickupPoint, destination }: MapComponentProps) => {
             
             // Update map with locations if provided
             updateMapWithLocations(map);
+            
+            // Add a sample marker for demonstration
+            if (!pickupPoint && !destination) {
+              const marker = new google.maps.Marker({
+                position: { lat: 40.749933, lng: -73.98633 },
+                map: map,
+                title: "Your Location"
+              });
+            }
           }
         } else {
           // Fallback to load Google Maps API dynamically if not already loaded
@@ -127,6 +137,15 @@ const MapComponent = ({ pickupPoint, destination }: MapComponentProps) => {
             
             // Update map with locations if provided
             updateMapWithLocations(map);
+            
+            // Add a sample marker for demonstration
+            if (!pickupPoint && !destination) {
+              const marker = new google.maps.Marker({
+                position: { lat: 40.749933, lng: -73.98633 },
+                map: map,
+                title: "Your Location"
+              });
+            }
           }
         }
       } catch (error) {
@@ -138,17 +157,15 @@ const MapComponent = ({ pickupPoint, destination }: MapComponentProps) => {
               <p class="text-muted-foreground text-sm">Please try refreshing the page</p>
             </div>
           `;
+          setIsLoading(false);
         }
       }
     };
     
-    // Initialize map with a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      initMap();
-    }, 500);
+    // Try to initialize the map
+    initMap();
     
     return () => {
-      clearTimeout(timer);
       clearMarkers();
     };
   }, []); // Only run on mount
@@ -275,7 +292,7 @@ const MapComponent = ({ pickupPoint, destination }: MapComponentProps) => {
   
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm">
-      <div ref={mapRef} className="w-full h-full bg-muted"></div>
+      <div ref={mapRef} className="w-full h-full bg-muted" style={{ height }}></div>
     </div>
   );
 };

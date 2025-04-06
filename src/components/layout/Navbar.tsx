@@ -1,10 +1,11 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Menu, X, MapPin, Car, LogOut, Settings } from 'lucide-react';
+import { User, Menu, X, MapPin, Car, LogOut, Settings, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUser } from '@/hooks/useUser';
+import { toast } from 'sonner';
 
 interface NavbarProps {
   isMenuOpen: boolean;
@@ -13,22 +14,47 @@ interface NavbarProps {
 
 const Navbar = ({ isMenuOpen, setIsMenuOpen }: NavbarProps) => {
   const { user, logout } = useUser();
+  const navigate = useNavigate();
   
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   
-  const navItems = [
-    { name: 'Find Rides', icon: MapPin, path: '/' },
-    { name: 'Offer Ride', icon: Car, path: '/register-ride' },
-    { name: 'Profile', icon: User, path: '/profile' },
-    { name: 'Settings', icon: Settings, path: '/settings' },
-  ];
+  // Define nav items based on authentication status
+  const getNavItems = () => {
+    const items = [
+      { name: 'Explore Map', icon: MapPin, path: '/' },
+      { name: 'Find Rides', icon: Car, path: '/register-ride' },
+    ];
+    
+    // Add authenticated-only items
+    if (user) {
+      items.push(
+        { name: 'Profile', icon: User, path: '/profile' },
+        { name: 'Edit Profile', icon: Edit, path: '/edit-profile' },
+        { name: 'Settings', icon: Settings, path: '/settings' }
+      );
+    }
+    
+    return items;
+  };
+  
+  const navItems = getNavItems();
+  
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      toast.error('Logout failed');
+    }
+  };
 
   return (
     <header className="bg-white/80 backdrop-blur-md dark:bg-gray-900/80 sticky top-0 z-30 border-b">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to={user ? "/" : "/login"} className="flex items-center space-x-2">
             <motion.div
               initial={{ rotate: 0 }}
               animate={{ rotate: 360 }}
@@ -45,7 +71,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen }: NavbarProps) => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
-            {navItems.map((item) => (
+            {user && navItems.map((item) => (
               <Link 
                 key={item.name}
                 to={item.path} 
@@ -59,7 +85,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen }: NavbarProps) => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={logout} 
+                onClick={handleLogout} 
                 className="flex items-center space-x-1"
               >
                 <LogOut className="h-4 w-4 mr-1" />
@@ -92,7 +118,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen }: NavbarProps) => {
             className="md:hidden"
           >
             <div className="container mx-auto px-4 pb-4 space-y-2">
-              {navItems.map((item, index) => (
+              {user && navItems.map((item, index) => (
                 <motion.div
                   key={item.name}
                   initial={{ opacity: 0, y: -10 }}
@@ -119,7 +145,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen }: NavbarProps) => {
                     variant="ghost" 
                     className="w-full justify-start"
                     onClick={() => {
-                      logout();
+                      handleLogout();
                       setIsMenuOpen(false);
                     }}
                   >

@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -18,7 +18,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
@@ -38,7 +37,18 @@ const formSchema = z.object({
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, loginWithGoogle, loginWithFacebook } = useUser();
+  const location = useLocation();
+  const { user, login, loginWithGoogle, loginWithFacebook } = useUser();
+  
+  // Get the intended destination from location state, or default to home
+  const from = location.state?.from?.pathname || '/';
+  
+  // If already authenticated, redirect to the home page
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -53,7 +63,7 @@ const Login = () => {
       setIsLoading(true);
       await login(values.email, values.password);
       toast.success('Login successful');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (error) {
       toast.error('Login failed: ' + (error as Error).message);
     } finally {
@@ -66,7 +76,7 @@ const Login = () => {
       setIsLoading(true);
       await loginWithGoogle();
       toast.success('Login successful');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (error) {
       toast.error('Google login failed');
     } finally {
@@ -79,9 +89,7 @@ const Login = () => {
       setIsLoading(true);
       await loginWithFacebook();
       toast.success('Login successful');
-      navigate('/');
-    } catch (error) {
-      toast.error('Facebook login failed');
+      navigate(from, { replace: true });
     } finally {
       setIsLoading(false);
     }
