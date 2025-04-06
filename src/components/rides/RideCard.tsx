@@ -3,7 +3,7 @@ import { Ride } from '@/hooks/useRides';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MapPin, Calendar, Clock, Car, User, MessageSquare } from 'lucide-react';
+import { MapPin, Calendar, Clock, Car, User, Phone } from 'lucide-react';
 
 interface RideCardProps {
   ride: Ride;
@@ -21,6 +21,7 @@ const RideCard = ({ ride }: RideCardProps) => {
     carName,
     fare,
     seats,
+    driverPhone, // This will be used for the phone link
   } = ride;
 
   const formattedDate = new Date(pickupDate).toLocaleDateString('en-US', {
@@ -28,6 +29,12 @@ const RideCard = ({ ride }: RideCardProps) => {
     month: 'short',
     day: 'numeric',
   });
+  
+  const handleCall = () => {
+    if (driverPhone) {
+      window.location.href = `tel:${driverPhone}`;
+    }
+  };
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow">
@@ -91,9 +98,9 @@ const RideCard = ({ ride }: RideCardProps) => {
       <CardFooter className="flex justify-between">
         <div className="text-lg font-bold">${fare}</div>
         <div className="space-x-2">
-          <Button size="sm" variant="outline">
-            <MessageSquare className="h-4 w-4 mr-1" />
-            Contact
+          <Button size="sm" variant="outline" onClick={handleCall}>
+            <Phone className="h-4 w-4 mr-1" />
+            Call
           </Button>
           <Button size="sm">Book Now</Button>
         </div>

@@ -84,6 +84,7 @@ const RideRegistrationForm = () => {
         driverId: user!.id,
         driverName: user!.name,
         driverPhoto: user!.photoURL,
+        driverPhone: user!.phoneNumber, // Include driver's phone number
         pickupPoint: values.pickupPoint,
         destination: values.destination,
         pickupDate: values.pickupDate,

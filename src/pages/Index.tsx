@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Search, Navigation, Car } from 'lucide-react';
+import { Search, Navigation } from 'lucide-react';
 import MapComponent from '@/components/MapComponent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,13 @@ const Index = () => {
   
   return (
     <div className="relative h-[calc(100vh-4rem)]">
+      {/* App Name Centered */}
+      <div className="text-center py-2">
+        <span className="text-xl font-bold bg-gradient-to-r from-eco-600 to-sky-600 text-transparent bg-clip-text">
+          Ecocab
+        </span>
+      </div>
+      
       {/* Search Bar at the top */}
       <div className="sticky top-4 z-10 px-4 mb-4">
         <div className="flex items-center gap-2 max-w-lg mx-auto">
@@ -35,7 +42,7 @@ const Index = () => {
         <MapComponent />
       </div>
       
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - Always visible */}
       <BottomNavigation />
     </div>
   );
