@@ -1,34 +1,19 @@
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { User, AuthState, AuthContextType } from '@/types/auth-types';
+import { AuthContext } from '@/contexts/AuthContext';
+import * as authService from '@/services/authService';
 
-// Define user type
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  photoURL?: string;
-  phoneNumber?: string;
-}
+// Custom hook to use auth context
+export const useUser = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useUser must be used within an AuthProvider');
+  }
+  return context;
+};
 
-// State for authentication
-interface AuthState {
-  user: User | null;
-  loading: boolean;
-  error: Error | null;
-}
-
-// Auth context type
-interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  loginWithFacebook: () => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
-  logout: () => void;
-  updateProfile: (userData: Partial<User>) => Promise<void>;
-}
-
-// Mock authentication for demo purposes
-// In a real app, this would connect to Firebase, Auth0, or a custom backend
+// Hook for providing auth state and methods
 export const useUserProvider = () => {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -38,41 +23,21 @@ export const useUserProvider = () => {
 
   // Check for existing session on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('ecocab_user');
-    if (storedUser) {
-      setState({
-        user: JSON.parse(storedUser),
-        loading: false,
-        error: null,
-      });
-    } else {
-      setState(prev => ({ ...prev, loading: false }));
-    }
+    const storedUser = authService.getStoredUser();
+    setState({
+      user: storedUser,
+      loading: false,
+      error: null,
+    });
   }, []);
 
   // Login with email/password
   const login = async (email: string, password: string) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      // Mock API call - would be replaced with actual auth provider
-      if (!email || !password) {
-        throw new Error('Email and password are required');
-      }
-      
-      // For demo, create a mock user
-      const mockUser: User = {
-        id: 'user_' + Math.random().toString(36).substring(2, 9),
-        name: email.split('@')[0],
-        email,
-        photoURL: `https://api.dicebear.com/7.x/personas/svg?seed=${email}`,
-      };
-      
-      // Store user in localStorage for persistence
-      localStorage.setItem('ecocab_user', JSON.stringify(mockUser));
-      
+      const user = await authService.login(email, password);
       setState({
-        user: mockUser,
+        user,
         loading: false,
         error: null,
       });
@@ -90,19 +55,9 @@ export const useUserProvider = () => {
   const loginWithGoogle = async () => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      // Mock Google authentication
-      const mockUser: User = {
-        id: 'google_' + Math.random().toString(36).substring(2, 9),
-        name: 'Google User',
-        email: 'user@gmail.com',
-        photoURL: 'https://api.dicebear.com/7.x/personas/svg?seed=google',
-      };
-      
-      localStorage.setItem('ecocab_user', JSON.stringify(mockUser));
-      
+      const user = await authService.loginWithGoogle();
       setState({
-        user: mockUser,
+        user,
         loading: false,
         error: null,
       });
@@ -120,19 +75,9 @@ export const useUserProvider = () => {
   const loginWithFacebook = async () => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      // Mock Facebook authentication
-      const mockUser: User = {
-        id: 'facebook_' + Math.random().toString(36).substring(2, 9),
-        name: 'Facebook User',
-        email: 'user@facebook.com',
-        photoURL: 'https://api.dicebear.com/7.x/personas/svg?seed=facebook',
-      };
-      
-      localStorage.setItem('ecocab_user', JSON.stringify(mockUser));
-      
+      const user = await authService.loginWithFacebook();
       setState({
-        user: mockUser,
+        user,
         loading: false,
         error: null,
       });
@@ -150,23 +95,9 @@ export const useUserProvider = () => {
   const signup = async (email: string, password: string, name: string) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      if (!email || !password || !name) {
-        throw new Error('Name, email, and password are required');
-      }
-      
-      // Mock user creation
-      const mockUser: User = {
-        id: 'user_' + Math.random().toString(36).substring(2, 9),
-        name,
-        email,
-        photoURL: `https://api.dicebear.com/7.x/personas/svg?seed=${email}`,
-      };
-      
-      localStorage.setItem('ecocab_user', JSON.stringify(mockUser));
-      
+      const user = await authService.signup(email, password, name);
       setState({
-        user: mockUser,
+        user,
         loading: false,
         error: null,
       });
@@ -182,7 +113,7 @@ export const useUserProvider = () => {
 
   // Logout
   const logout = () => {
-    localStorage.removeItem('ecocab_user');
+    authService.logout();
     setState({
       user: null,
       loading: false,
@@ -199,12 +130,7 @@ export const useUserProvider = () => {
         throw new Error('User not authenticated');
       }
       
-      const updatedUser = {
-        ...state.user,
-        ...userData,
-      };
-      
-      localStorage.setItem('ecocab_user', JSON.stringify(updatedUser));
+      const updatedUser = await authService.updateProfile(state.user, userData);
       
       setState({
         user: updatedUser,
@@ -230,16 +156,4 @@ export const useUserProvider = () => {
     logout,
     updateProfile,
   };
-};
-
-// Create the context
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Custom hook to use auth context
-export const useUser = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useUser must be used within an AuthProvider');
-  }
-  return context;
 };
