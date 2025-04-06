@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
 import { MapPin } from 'lucide-react';
 
@@ -8,78 +8,185 @@ interface MapComponentProps {
   destination?: string;
 }
 
-// This is a simulated Google Maps component
-// In a real application, you would use an actual Google Maps API key
 const MapComponent = ({ pickupPoint, destination }: MapComponentProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
   
   useEffect(() => {
-    // Simulate map loading state
-    let timer: ReturnType<typeof setTimeout>;
+    if (!mapRef.current) return;
     
-    if (mapRef.current) {
-      // Add loading state
+    // Display loading state
+    if (isLoading) {
       mapRef.current.innerHTML = `
         <div class="flex flex-col items-center justify-center w-full h-full">
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
           <p class="text-muted-foreground">Loading map...</p>
         </div>
       `;
-      
-      // Simulate map loading
-      timer = setTimeout(() => {
+    }
+    
+    // Initialize Google Maps
+    const initMap = async () => {
+      try {
+        const loader = new Loader({
+          apiKey: "AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg", // This is a public test API key from Google Maps documentation
+          version: "weekly",
+          libraries: ["places"]
+        });
+        
+        await loader.load();
+        
+        if (!mapRef.current || !window.google) return;
+        
+        // Clear the loading indicator
+        mapRef.current.innerHTML = '';
+        
+        // Create the map
+        const map = new google.maps.Map(mapRef.current, {
+          center: { lat: 40.749933, lng: -73.98633 }, // Default to New York
+          zoom: 13,
+          mapTypeControl: false,
+          fullscreenControl: true,
+          streetViewControl: false,
+          zoomControl: true
+        });
+        
+        setMapLoaded(true);
+        setIsLoading(false);
+        
+        // Convert addresses to coordinates and add markers if provided
+        if (pickupPoint || destination) {
+          const geocoder = new google.maps.Geocoder();
+          
+          // Array to store marker positions for boundary fitting
+          const bounds = new google.maps.LatLngBounds();
+          
+          if (pickupPoint) {
+            geocoder.geocode({ address: pickupPoint }, (results, status) => {
+              if (status === "OK" && results && results[0]) {
+                const position = results[0].geometry.location;
+                
+                // Add pickup marker
+                const pickupMarker = new google.maps.Marker({
+                  position: position,
+                  map: map,
+                  icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: "#22c55e", // Green color for pickup
+                    fillOpacity: 1,
+                    strokeWeight: 2,
+                    strokeColor: "#ffffff",
+                  },
+                  title: "Pickup: " + pickupPoint
+                });
+                
+                // Add pickup info window
+                const pickupInfo = new google.maps.InfoWindow({
+                  content: `<div class="p-2"><strong>Pickup:</strong> ${pickupPoint}</div>`
+                });
+                
+                pickupMarker.addListener("click", () => {
+                  pickupInfo.open(map, pickupMarker);
+                });
+                
+                bounds.extend(position);
+                
+                // If both points are available, fit the map to show both
+                if (destination && mapLoaded) {
+                  map.fitBounds(bounds);
+                }
+              }
+            });
+          }
+          
+          if (destination) {
+            geocoder.geocode({ address: destination }, (results, status) => {
+              if (status === "OK" && results && results[0]) {
+                const position = results[0].geometry.location;
+                
+                // Add destination marker
+                const destMarker = new google.maps.Marker({
+                  position: position,
+                  map: map,
+                  icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: "#0ea5e9", // Blue color for destination
+                    fillOpacity: 1,
+                    strokeWeight: 2,
+                    strokeColor: "#ffffff",
+                  },
+                  title: "Destination: " + destination
+                });
+                
+                // Add destination info window
+                const destInfo = new google.maps.InfoWindow({
+                  content: `<div class="p-2"><strong>Destination:</strong> ${destination}</div>`
+                });
+                
+                destMarker.addListener("click", () => {
+                  destInfo.open(map, destMarker);
+                });
+                
+                bounds.extend(position);
+                
+                // If both points are available, fit the map to show both
+                if (pickupPoint && mapLoaded) {
+                  map.fitBounds(bounds);
+                }
+              }
+            });
+          }
+          
+          // If both pickup and destination are set, try to draw a route between them
+          if (pickupPoint && destination) {
+            const directionsService = new google.maps.DirectionsService();
+            const directionsRenderer = new google.maps.DirectionsRenderer({
+              suppressMarkers: true, // Don't show default markers as we've created custom ones
+              polylineOptions: {
+                strokeColor: "#22c55e",
+                strokeWeight: 5,
+                strokeOpacity: 0.7
+              }
+            });
+            
+            directionsRenderer.setMap(map);
+            
+            directionsService.route({
+              origin: pickupPoint,
+              destination: destination,
+              travelMode: google.maps.TravelMode.DRIVING
+            }, (response, status) => {
+              if (status === "OK" && response) {
+                directionsRenderer.setDirections(response);
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading Google Maps:", error);
         if (mapRef.current) {
-          // For demo purposes, we're using a static map image
-          // In a real app, you would initialize Google Maps here
           mapRef.current.innerHTML = `
-            <div class="relative w-full h-full">
-              <div class="absolute inset-0 bg-gradient-to-b from-transparent to-black/20 pointer-events-none"></div>
-              <img 
-                src="https://maps.googleapis.com/maps/api/staticmap?center=New+York,NY&zoom=13&size=600x400&maptype=roadmap&key=YOUR_API_KEY" 
-                alt="Map" 
-                class="w-full h-full object-cover rounded-lg" 
-                style="filter: saturate(1.1) hue-rotate(10deg);"
-              />
-              
-              ${pickupPoint ? `
-                <div class="absolute top-1/4 left-1/3 transform -translate-x-1/2 -translate-y-1/2">
-                  <div class="bg-primary text-white p-2 rounded-full shadow-lg animate-bounce">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                  </div>
-                  <div class="bg-white px-2 py-1 rounded mt-1 shadow text-sm font-medium">
-                    ${pickupPoint}
-                  </div>
-                </div>
-              ` : ''}
-              
-              ${destination ? `
-                <div class="absolute top-2/3 right-1/4 transform -translate-x-1/2 -translate-y-1/2">
-                  <div class="bg-accent text-white p-2 rounded-full shadow-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                  </div>
-                  <div class="bg-white px-2 py-1 rounded mt-1 shadow text-sm font-medium">
-                    ${destination}
-                  </div>
-                </div>
-              ` : ''}
-              
-              <div class="absolute bottom-4 right-4 bg-white rounded-full p-2 shadow-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-              </div>
-              
-              <div class="absolute bottom-4 left-4 bg-white rounded-lg py-1 px-2 text-xs shadow-lg">
-                Map data ©2024 Ecocab
-              </div>
+            <div class="flex flex-col items-center justify-center w-full h-full">
+              <div class="text-red-500 mb-2">Failed to load map</div>
+              <p class="text-muted-foreground text-sm">Please try refreshing the page</p>
             </div>
           `;
         }
-      }, 1500);
-    }
+      }
+    };
+    
+    // Initialize map with a small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      initMap();
+    }, 500);
     
     return () => {
       clearTimeout(timer);
     };
-  }, [pickupPoint, destination]);
+  }, [pickupPoint, destination, mapLoaded]);
   
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm">
