@@ -49,7 +49,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
         );
         
         // Add listeners for place selection
-        pickupAutocomplete.addListener('place_changed', () => {
+        google.maps.event.addListener(pickupAutocomplete, 'place_changed', () => {
           const place = pickupAutocomplete.getPlace();
           if (place.formatted_address && pickupInputRef.current) {
             pickupInputRef.current.value = place.formatted_address;
@@ -57,7 +57,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
           }
         });
         
-        destAutocomplete.addListener('place_changed', () => {
+        google.maps.event.addListener(destAutocomplete, 'place_changed', () => {
           const place = destAutocomplete.getPlace();
           if (place.formatted_address && destinationInputRef.current) {
             destinationInputRef.current.value = place.formatted_address;

@@ -53,10 +53,24 @@ declare namespace google.maps {
     setDirections(directions: DirectionsResult): void;
   }
 
-  class Autocomplete {
-    constructor(inputField: HTMLInputElement, opts?: AutocompleteOptions);
-    addListener(eventName: string, handler: Function): MapsEventListener;
-    getPlace(): PlaceResult;
+  // Modified Autocomplete class to include proper event types
+  namespace places {
+    class Autocomplete extends MVCObject {
+      constructor(inputField: HTMLInputElement, opts?: AutocompleteOptions);
+      getPlace(): PlaceResult;
+      setBounds(bounds: LatLngBounds | LatLngBoundsLiteral): void;
+      setComponentRestrictions(restrictions: GeocoderComponentRestrictions): void;
+      setFields(fields: string[]): void;
+      setOptions(options: AutocompleteOptions): void;
+      setTypes(types: string[]): void;
+    }
+  }
+
+  // Added event namespace for Google Maps event handling
+  namespace event {
+    function addListener(instance: any, eventName: string, handler: Function): MapsEventListener;
+    function removeListener(listener: MapsEventListener): void;
+    function clearInstanceListeners(instance: any): void;
   }
 
   interface MapOptions {
@@ -396,18 +410,5 @@ declare namespace google.maps {
     height: number;
     equals(other: Size): boolean;
     toString(): string;
-  }
-
-  namespace places {
-    class Autocomplete extends google.maps.MVCObject {
-      constructor(inputField: HTMLInputElement, opts?: AutocompleteOptions);
-      getBounds(): google.maps.LatLngBounds | undefined;
-      getPlace(): PlaceResult;
-      setBounds(bounds: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral): void;
-      setComponentRestrictions(restrictions: GeocoderComponentRestrictions): void;
-      setFields(fields: string[]): void;
-      setOptions(options: AutocompleteOptions): void;
-      setTypes(types: string[]): void;
-    }
   }
 }
