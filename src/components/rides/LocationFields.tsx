@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { MapPin, LocateFixed } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { Control } from "react-hook-form";
 
 interface LocationFieldsProps {
@@ -11,65 +11,79 @@ interface LocationFieldsProps {
   updateFareCalculation: () => void;
 }
 
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
 const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationFieldsProps) => {
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
   
   // Initialize Google Maps Autocomplete
   useEffect(() => {
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
+    if (!pickupInputRef.current || !destinationInputRef.current) return;
+    
+    // Function to check if Google Maps is loaded and initialize autocomplete
+    const initAutocomplete = () => {
+      if (!window.google || !window.google.maps || !window.google.maps.places) return false;
+      
+      try {
+        // Options for the autocomplete
+        const options = {
+          types: ['(cities)'],
+          fields: ['address_components', 'formatted_address', 'geometry', 'name']
+        };
+        
+        // Initialize autocomplete for pickup
+        const pickupAutocomplete = new google.maps.places.Autocomplete(
+          pickupInputRef.current,
+          options
+        );
+        
+        // Initialize autocomplete for destination
+        const destAutocomplete = new google.maps.places.Autocomplete(
+          destinationInputRef.current,
+          options
+        );
+        
+        // Add listeners for place selection
+        pickupAutocomplete.addListener('place_changed', () => {
+          const place = pickupAutocomplete.getPlace();
+          if (place.formatted_address && pickupInputRef.current) {
+            pickupInputRef.current.value = place.formatted_address;
+            updateFareCalculation();
+          }
+        });
+        
+        destAutocomplete.addListener('place_changed', () => {
+          const place = destAutocomplete.getPlace();
+          if (place.formatted_address && destinationInputRef.current) {
+            destinationInputRef.current.value = place.formatted_address;
+            updateFareCalculation();
+          }
+        });
+        
+        return true;
+      } catch (error) {
+        console.error("Error initializing Google Maps Autocomplete:", error);
+        return false;
+      }
+    };
+    
+    // Try to initialize immediately if Google Maps is already loaded
+    if (!initAutocomplete()) {
       // If Google Maps isn't loaded yet, wait for it
       const checkGoogleMapsLoaded = setInterval(() => {
-        if (window.google && window.google.maps && window.google.maps.places) {
+        if (initAutocomplete()) {
           clearInterval(checkGoogleMapsLoaded);
-          initAutocomplete();
         }
       }, 300);
       
       return () => clearInterval(checkGoogleMapsLoaded);
-    } else {
-      initAutocomplete();
     }
-  }, []);
-  
-  const initAutocomplete = () => {
-    if (!window.google || !pickupInputRef.current || !destinationInputRef.current) return;
-    
-    // Options for the autocomplete
-    const options = {
-      types: ['(cities)'],
-      fields: ['address_components', 'formatted_address', 'geometry', 'name']
-    };
-    
-    // Initialize autocomplete for pickup
-    const pickupAutocomplete = new google.maps.places.Autocomplete(
-      pickupInputRef.current,
-      options
-    );
-    
-    // Initialize autocomplete for destination
-    const destAutocomplete = new google.maps.places.Autocomplete(
-      destinationInputRef.current,
-      options
-    );
-    
-    // Add listeners for place selection
-    pickupAutocomplete.addListener('place_changed', () => {
-      const place = pickupAutocomplete.getPlace();
-      if (place.formatted_address) {
-        pickupInputRef.current!.value = place.formatted_address;
-        updateFareCalculation();
-      }
-    });
-    
-    destAutocomplete.addListener('place_changed', () => {
-      const place = destAutocomplete.getPlace();
-      if (place.formatted_address) {
-        destinationInputRef.current!.value = place.formatted_address;
-        updateFareCalculation();
-      }
-    });
-  };
+  }, [updateFareCalculation]);
   
   return (
     <>
@@ -88,7 +102,11 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                 {...field} 
                 disabled={isLoading}
                 className="animated-btn"
-                ref={pickupInputRef}
+                ref={(e) => {
+                  // Assign to both the RHF ref and our local ref
+                  field.ref(e);
+                  pickupInputRef.current = e;
+                }}
                 onChange={(e) => {
                   field.onChange(e);
                   updateFareCalculation();
@@ -115,7 +133,11 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                 {...field} 
                 disabled={isLoading}
                 className="animated-btn"
-                ref={destinationInputRef}
+                ref={(e) => {
+                  // Assign to both the RHF ref and our local ref
+                  field.ref(e);
+                  destinationInputRef.current = e;
+                }}
                 onChange={(e) => {
                   field.onChange(e);
                   updateFareCalculation();
