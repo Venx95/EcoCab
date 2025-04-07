@@ -38,15 +38,32 @@ const Profile = () => {
       try {
         setLoading(true);
         
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('name, email, phone_number, photo_url')
-          .eq('id', user.id)
-          .single();
+        // First, try to get profile from Supabase
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('name, email, phone_number, photo_url')
+            .eq('id', user.id)
+            .single();
+            
+          if (error) throw error;
           
-        if (error) throw error;
+          if (data) {
+            setProfile(data);
+            return;
+          }
+        } catch (error) {
+          console.error('Error fetching profile from Supabase:', error);
+          // If Supabase fetch fails, continue to fallback
+        }
         
-        setProfile(data);
+        // Fallback to user data from auth context
+        setProfile({
+          name: user.name,
+          email: user.email,
+          phone_number: user.phoneNumber,
+          photo_url: user.photoURL
+        });
       } catch (error) {
         console.error('Error fetching profile:', error);
         toast.error('Could not load profile data');
@@ -68,10 +85,22 @@ const Profile = () => {
 
   const handleLogout = async () => {
     try {
-      await logout();
+      // First, try to clear local session
+      localStorage.removeItem('sb-fnvfltaomsxewwojqtvv-auth-token');
+      
+      try {
+        // Try to logout through Supabase
+        await logout();
+      } catch (error) {
+        console.error('Supabase logout failed:', error);
+        // Continue even if Supabase logout fails
+      }
+      
+      // Always succeed with the user experience
       toast.success('Logged out successfully');
       navigate('/login');
     } catch (error) {
+      console.error('Logout error:', error);
       toast.error('Logout failed');
     }
   };
