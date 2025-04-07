@@ -42,7 +42,7 @@ const EditProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { user } = useUser();
+  const { user, updateProfile } = useUser();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,7 +60,7 @@ const EditProfile = () => {
       if (!user) return;
       
       try {
-        const { data: profile, error } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
           .select('name, email, phone_number, photo_url')
           .eq('id', user.id)
@@ -68,13 +68,13 @@ const EditProfile = () => {
           
         if (error) throw error;
         
-        if (profile) {
-          form.setValue('name', profile.name || '');
-          form.setValue('email', profile.email || '');
-          form.setValue('phoneNumber', profile.phone_number || '');
-          form.setValue('photoURL', profile.photo_url || '');
-          if (profile.photo_url) {
-            setPreviewImage(profile.photo_url);
+        if (data) {
+          form.setValue('name', data.name || '');
+          form.setValue('email', data.email || '');
+          form.setValue('phoneNumber', data.phone_number || '');
+          form.setValue('photoURL', data.photo_url || '');
+          if (data.photo_url) {
+            setPreviewImage(data.photo_url);
           }
         }
       } catch (error) {
@@ -83,7 +83,7 @@ const EditProfile = () => {
     };
     
     fetchProfile();
-  }, [user]);
+  }, [user, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {

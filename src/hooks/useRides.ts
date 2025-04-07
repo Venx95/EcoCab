@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
 export interface Ride {
   id: string;
@@ -27,66 +28,34 @@ export const calculateFare = async (
   basePrice: number = 20
 ): Promise<number> => {
   try {
-    // Try to use Google Maps Distance Matrix API to estimate distance
-    const directionsService = new google.maps.DirectionsService();
+    // For now, use a simplified calculation as Google Maps integration requires actual API key
+    // Basic distance calculation based on input strings
+    const distanceFactor = Math.max(
+      5,
+      (pickupPoint.length + destination.length) / 4
+    );
     
-    const response = await directionsService.route({
-      origin: pickupPoint,
-      destination: destination,
-      travelMode: google.maps.TravelMode.DRIVING,
-    });
+    // Add randomness for demo purposes
+    const randomFactor = 0.8 + Math.random() * 0.4; // Between 0.8 and 1.2
     
-    if (response.routes.length > 0) {
-      // Get distance in meters from the route
-      const distanceInMeters = response.routes[0].legs[0].distance?.value || 0;
-      
-      // Convert to kilometers
-      const distanceInKm = distanceInMeters / 1000;
-      
-      // Base fare calculation (₹20 per km with minimum ₹50)
-      const baseFare = Math.max(50, distanceInKm * 20);
-      
-      // Add time-based surge pricing
-      const hour = new Date().getHours();
-      let surgeFactor = 1.0;
-      
-      // Peak hours
-      if ((hour >= 7 && hour <= 10) || (hour >= 16 && hour <= 19)) {
-        surgeFactor = 1.3;
-      }
-      
-      // Calculate the final fare
-      const calculatedFare = baseFare * surgeFactor;
-      
-      // Round to nearest integer
-      return Math.round(calculatedFare);
+    // Calculate the fare with surge pricing based on time of day
+    const hour = new Date().getHours();
+    let surgeFactor = 1.0;
+    
+    // Peak hours
+    if ((hour >= 7 && hour <= 10) || (hour >= 16 && hour <= 19)) {
+      surgeFactor = 1.3;
     }
+    
+    const calculatedFare = basePrice * distanceFactor * randomFactor * surgeFactor;
+    
+    // Round to nearest integer
+    return Math.round(calculatedFare);
   } catch (error) {
-    console.error("Error calculating distance:", error);
+    console.error("Error calculating fare:", error);
+    // Default fare if calculation fails
+    return Math.round(basePrice * 5);
   }
-  
-  // Fallback to simplified calculation if Google Maps fails
-  const distanceFactor = Math.max(
-    5,
-    (pickupPoint.length + destination.length) / 4
-  );
-  
-  // Add randomness for demo purposes
-  const randomFactor = 0.8 + Math.random() * 0.4; // Between 0.8 and 1.2
-  
-  // Calculate the fare with surge pricing based on time of day
-  const hour = new Date().getHours();
-  let surgeFactor = 1.0;
-  
-  // Peak hours
-  if ((hour >= 7 && hour <= 10) || (hour >= 16 && hour <= 19)) {
-    surgeFactor = 1.3;
-  }
-  
-  const calculatedFare = basePrice * distanceFactor * randomFactor * surgeFactor;
-  
-  // Round to nearest integer
-  return Math.round(calculatedFare);
 };
 
 export const useRides = () => {
@@ -117,9 +86,8 @@ export const useRides = () => {
             luggage_capacity,
             seats,
             created_at,
-            profiles:driver_id(name, photo_url)
-          `)
-          .order('created_at', { ascending: false });
+            profiles(name, photo_url)
+          `);
           
         if (error) throw error;
         
@@ -136,15 +104,16 @@ export const useRides = () => {
           pickup_time_end: ride.pickup_time_end,
           car_name: ride.car_name,
           fare: ride.fare,
-          is_courier_available: ride.is_courier_available,
+          is_courier_available: ride.is_courier_available || false,
           luggage_capacity: ride.luggage_capacity,
           seats: ride.seats,
-          created_at: new Date(ride.created_at)
+          created_at: new Date(ride.created_at || Date.now())
         }));
         
         setRides(formattedRides);
         setLoading(false);
       } catch (err) {
+        console.error("Error fetching rides:", err);
         setError(err as Error);
         setLoading(false);
       }
@@ -177,7 +146,7 @@ export const useRides = () => {
             luggage_capacity,
             seats,
             created_at,
-            profiles:driver_id(name, photo_url)
+            profiles(name, photo_url)
           `)
           .eq('id', payload.new.id)
           .single();
@@ -196,10 +165,10 @@ export const useRides = () => {
             pickup_time_end: data.pickup_time_end,
             car_name: data.car_name,
             fare: data.fare,
-            is_courier_available: data.is_courier_available,
+            is_courier_available: data.is_courier_available || false,
             luggage_capacity: data.luggage_capacity,
             seats: data.seats,
-            created_at: new Date(data.created_at)
+            created_at: new Date(data.created_at || Date.now())
           }, ...currentRides]);
         }
       })
@@ -215,7 +184,19 @@ export const useRides = () => {
     try {
       const { data: newRide, error } = await supabase
         .from('rides')
-        .insert(ride)
+        .insert({
+          driver_id: ride.driver_id,
+          pickup_point: ride.pickup_point,
+          destination: ride.destination,
+          pickup_date: ride.pickup_date,
+          pickup_time_start: ride.pickup_time_start,
+          pickup_time_end: ride.pickup_time_end,
+          car_name: ride.car_name,
+          fare: ride.fare,
+          is_courier_available: ride.is_courier_available,
+          luggage_capacity: ride.luggage_capacity,
+          seats: ride.seats
+        })
         .select()
         .single();
         
@@ -223,6 +204,7 @@ export const useRides = () => {
       
       return newRide;
     } catch (err) {
+      console.error("Error adding ride:", err);
       setError(err as Error);
       throw err;
     }
@@ -240,6 +222,7 @@ export const useRides = () => {
       
       setRides(rides.filter(ride => ride.id !== rideId));
     } catch (err) {
+      console.error("Error removing ride:", err);
       setError(err as Error);
       throw err;
     }

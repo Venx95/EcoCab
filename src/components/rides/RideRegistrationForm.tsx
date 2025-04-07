@@ -29,7 +29,8 @@ const formSchema = z.object({
   seats: z.coerce.number().min(1, { message: 'Must have at least 1 seat' }),
   isCourierAvailable: z.boolean().default(false),
   luggageCapacity: z.coerce.number().optional()
-    .refine((val) => !val || !isNaN(val), { message: 'Must be a number' })
+    .refine((val) => !val || !isNaN(val), { message: 'Must be a number' }),
+  phoneNumber: z.string().min(10, { message: 'Phone number must be at least 10 characters' })
 });
 
 export type RideFormValues = z.infer<typeof formSchema>;
@@ -53,6 +54,7 @@ const RideRegistrationForm = () => {
       seats: 4,
       isCourierAvailable: false,
       luggageCapacity: undefined,
+      phoneNumber: ''
     },
   });
 
@@ -60,16 +62,20 @@ const RideRegistrationForm = () => {
   const pickupPoint = form.watch('pickupPoint');
   const destination = form.watch('destination');
 
-  const updateFareCalculation = () => {
-    if (pickupPoint.length > 2 && destination.length > 2) {
-      const fare = calculateFare(pickupPoint, destination);
-      setCalculatedFare(fare);
-    }
-  };
-
   useEffect(() => {
-    updateFareCalculation();
-  }, [pickupPoint, destination]);
+    const updateFare = async () => {
+      if (pickupPoint.length > 2 && destination.length > 2) {
+        try {
+          const fare = await calculateFare(pickupPoint, destination);
+          setCalculatedFare(fare);
+        } catch (err) {
+          console.error("Error calculating fare:", err);
+        }
+      }
+    };
+
+    updateFare();
+  }, [pickupPoint, destination, calculateFare]);
 
   const onSubmit = async (values: RideFormValues) => {
     try {
@@ -80,11 +86,22 @@ const RideRegistrationForm = () => {
         return;
       }
       
-      if (!calculatedFare) {
-        updateFareCalculation();
+      // Update the user's phone number if provided
+      if (values.phoneNumber) {
+        await supabase
+          .from('profiles')
+          .update({
+            phone_number: values.phoneNumber
+          })
+          .eq('id', user.id);
       }
       
-      const fareAmount = calculatedFare || calculateFare(values.pickupPoint, values.destination);
+      let fare: number;
+      if (calculatedFare) {
+        fare = calculatedFare;
+      } else {
+        fare = await calculateFare(values.pickupPoint, values.destination);
+      }
       
       // Store ride in Supabase
       const { data: newRide, error } = await supabase
@@ -97,7 +114,7 @@ const RideRegistrationForm = () => {
           pickup_time_start: values.pickupTimeStart,
           pickup_time_end: values.pickupTimeEnd,
           car_name: values.carName,
-          fare: fareAmount,
+          fare,
           is_courier_available: values.isCourierAvailable,
           luggage_capacity: values.luggageCapacity,
           seats: values.seats,
@@ -124,7 +141,6 @@ const RideRegistrationForm = () => {
           <LocationFields 
             control={form.control} 
             isLoading={isLoading} 
-            updateFareCalculation={updateFareCalculation} 
           />
           
           <TimeFields 
@@ -142,6 +158,26 @@ const RideRegistrationForm = () => {
             isLoading={isLoading}
             isCourierAvailable={isCourierAvailable}
           />
+          
+          {/* Add Phone Number Field */}
+          <div className="space-y-2">
+            <div className="form-group">
+              <label htmlFor="phoneNumber" className="text-sm font-medium">Phone Number</label>
+              <input
+                {...form.register('phoneNumber')}
+                id="phoneNumber"
+                type="tel"
+                placeholder="Enter your phone number"
+                className="w-full mt-1 px-3 py-2 border rounded-md shadow-sm"
+                disabled={isLoading}
+              />
+              {form.formState.errors.phoneNumber && (
+                <p className="text-sm text-red-500 mt-1">
+                  {form.formState.errors.phoneNumber.message}
+                </p>
+              )}
+            </div>
+          </div>
           
           <FareDisplay calculatedFare={calculatedFare} />
         </div>

@@ -21,8 +21,22 @@ interface Message {
 interface ConversationProfile {
   id: string;
   name: string;
-  photo_url?: string;
+  photo_url?: string | null;
 }
+
+type ConversationType = {
+  user1_id: string;
+  user2_id: string;
+};
+
+type MessageType = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  text: string;
+  timestamp: string;
+  read: boolean;
+};
 
 const Conversation = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,16 +57,18 @@ const Conversation = () => {
         setLoading(true);
         
         // Get conversation to verify user is a participant
-        const { data: conversation, error: convError } = await supabase
+        const { data, error: convError } = await supabase
           .from('conversations')
           .select('user1_id, user2_id')
           .eq('id', id)
           .single();
           
         if (convError) throw convError;
+
+        const conversation = data as ConversationType;
         
         // Make sure user is part of this conversation
-        if (conversation.user1_id !== user.id && conversation.user2_id !== user.id) {
+        if (conversation && (conversation.user1_id !== user.id && conversation.user2_id !== user.id)) {
           toast.error("You don't have access to this conversation");
           navigate('/messages');
           return;
@@ -61,7 +77,7 @@ const Conversation = () => {
         // Get other user's profile
         const otherUserId = conversation.user1_id === user.id ? conversation.user2_id : conversation.user1_id;
         
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, name, photo_url')
           .eq('id', otherUserId)
@@ -69,6 +85,7 @@ const Conversation = () => {
           
         if (profileError) throw profileError;
         
+        const profile = profileData as ConversationProfile;
         setOtherUser(profile);
         
         // Get messages
@@ -81,7 +98,7 @@ const Conversation = () => {
         if (messagesError) throw messagesError;
         
         // Format messages
-        const formattedMessages = messagesData.map(message => ({
+        const formattedMessages = (messagesData || []).map((message: MessageType) => ({
           id: message.id,
           sender_id: message.sender_id,
           text: message.text,
@@ -93,8 +110,8 @@ const Conversation = () => {
         
         // Mark messages as read
         const unreadMessages = messagesData
-          .filter(msg => msg.receiver_id === user.id && !msg.read)
-          .map(msg => msg.id);
+          .filter((msg: MessageType) => msg.receiver_id === user.id && !msg.read)
+          .map((msg: MessageType) => msg.id);
           
         if (unreadMessages.length > 0) {
           await supabase
@@ -122,7 +139,7 @@ const Conversation = () => {
         filter: `conversation_id=eq.${id}`
       }, (payload) => {
         // Add new message to the list
-        const newMessage = payload.new;
+        const newMessage = payload.new as MessageType;
         setMessages(prev => [...prev, {
           id: newMessage.id,
           sender_id: newMessage.sender_id,
@@ -156,7 +173,7 @@ const Conversation = () => {
     
     try {
       // Create new message
-      const { error: msgError } = await supabase
+      await supabase
         .from('messages')
         .insert({
           conversation_id: id,
@@ -165,10 +182,8 @@ const Conversation = () => {
           text: messageText.trim()
         });
         
-      if (msgError) throw msgError;
-      
       // Update conversation last message
-      const { error: convError } = await supabase
+      await supabase
         .from('conversations')
         .update({
           last_message: messageText.trim(),
@@ -176,8 +191,6 @@ const Conversation = () => {
         })
         .eq('id', id);
         
-      if (convError) throw convError;
-      
       // Clear input
       setMessageText('');
     } catch (error) {
@@ -207,7 +220,7 @@ const Conversation = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Avatar className="h-10 w-10 mr-3">
-          <AvatarImage src={otherUser?.photo_url} />
+          <AvatarImage src={otherUser?.photo_url || undefined} />
           <AvatarFallback>{otherUser ? otherUser.name[0] : '?'}</AvatarFallback>
         </Avatar>
         <div>

@@ -2,6 +2,7 @@
 import { ReactNode } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { useUserProvider } from '@/hooks/useUser';
+import { User } from '@/types/auth-types';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -10,8 +11,22 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const auth = useUserProvider();
   
+  // Convert return types to match expected interface
+  const wrappedAuth = {
+    ...auth,
+    login: async (email: string, password: string): Promise<void> => {
+      await auth.login(email, password);
+    },
+    signup: async (email: string, password: string, name: string, phoneNumber?: string): Promise<void> => {
+      await auth.signup(email, password, name, phoneNumber);
+    },
+    updateProfile: async (userData: Partial<User>): Promise<void> => {
+      await auth.updateProfile(userData);
+    }
+  };
+  
   return (
-    <AuthContext.Provider value={auth}>
+    <AuthContext.Provider value={wrappedAuth}>
       {children}
     </AuthContext.Provider>
   );

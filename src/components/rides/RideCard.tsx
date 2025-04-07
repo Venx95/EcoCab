@@ -1,7 +1,7 @@
 
 import { Ride } from '@/hooks/useRides';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { MapPin, Calendar, Clock, Car, User, Phone, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,14 @@ import { toast } from 'sonner';
 interface RideCardProps {
   ride: Ride;
 }
+
+type ProfileType = {
+  id: string;
+  name: string;
+  phone_number?: string | null;
+  photo_url?: string | null;
+  email: string;
+};
 
 const RideCard = ({ ride }: RideCardProps) => {
   const navigate = useNavigate();
@@ -41,11 +49,13 @@ const RideCard = ({ ride }: RideCardProps) => {
   const handleCall = async () => {
     try {
       // Get driver profile to get their phone number
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('phone_number')
         .eq('id', driver_id)
         .single();
+        
+      if (error) throw error;
         
       if (profile?.phone_number) {
         window.location.href = `tel:${profile.phone_number}`;
@@ -66,12 +76,14 @@ const RideCard = ({ ride }: RideCardProps) => {
     
     try {
       // Check if conversation exists
-      const { data: existingConversation } = await supabase
+      const { data: existingConversation, error: convError } = await supabase
         .from('conversations')
         .select('id')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .or(`user1_id.eq.${driver_id},user2_id.eq.${driver_id}`)
         .maybeSingle();
+        
+      if (convError) throw convError;
       
       if (existingConversation) {
         navigate(`/messages/${existingConversation.id}`);
@@ -88,7 +100,11 @@ const RideCard = ({ ride }: RideCardProps) => {
         
         if (error) throw error;
         
-        navigate(`/messages/${newConversation.id}`);
+        if (newConversation) {
+          navigate(`/messages/${newConversation.id}`);
+        } else {
+          throw new Error("Failed to create conversation");
+        }
       }
     } catch (error) {
       console.error("Error starting conversation:", error);

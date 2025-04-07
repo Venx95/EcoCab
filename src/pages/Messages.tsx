@@ -16,6 +16,11 @@ interface Conversation {
   unread: boolean;
 }
 
+interface ProfileType {
+  name: string;
+  photo_url?: string;
+}
+
 const Messages = () => {
   const { user } = useUser();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -49,11 +54,18 @@ const Messages = () => {
             const otherUserId = conv.user1_id === user.id ? conv.user2_id : conv.user1_id;
             
             // Get the other participant's profile
-            const { data: profile } = await supabase
+            const { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('name, photo_url')
               .eq('id', otherUserId)
               .single();
+              
+            if (profileError) {
+              console.error("Error fetching profile:", profileError);
+              return null;
+            }
+
+            const profile = profileData as ProfileType | null;
               
             // Get unread message count
             const { data: unreadMessages, error: unreadError } = await supabase
@@ -76,7 +88,8 @@ const Messages = () => {
           })
         );
         
-        setConversations(conversationsWithDetails);
+        // Filter out any null values (failed to fetch profile)
+        setConversations(conversationsWithDetails.filter(Boolean) as Conversation[]);
       } catch (error) {
         console.error('Error fetching conversations:', error);
       } finally {
