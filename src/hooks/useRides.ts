@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 
 export interface Ride {
   id: string;
@@ -22,7 +21,7 @@ export interface Ride {
 }
 
 // Helper function to calculate Haversine distance between two points
-const calculateHaversineDistance = (
+export const calculateHaversineDistance = (
   startLat: number, 
   startLng: number, 
   endLat: number, 
@@ -45,12 +44,11 @@ const calculateHaversineDistance = (
   return earthRadius * c;
 };
 
-// Helper function to convert an address to coordinates
+// Helper function to convert an address to coordinates 
+// In a production app, this would use Google Maps Geocoding API or similar
 const geocodeAddress = async (address: string): Promise<{lat: number, lng: number}> => {
   try {
-    // This would ideally use a proper geocoding API
     // For demo purposes, we'll simulate coordinates based on string length
-    // In a production app, use Google Maps Geocoding API or similar
     const hashValue = address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
     // Generate somewhat realistic looking coordinates
@@ -65,12 +63,21 @@ const geocodeAddress = async (address: string): Promise<{lat: number, lng: numbe
   }
 };
 
+interface FareCalculationResult {
+  fare: number;
+  distance: number;
+  baseFare: number;
+  distanceCost: number;
+  timeCost: number;
+  surgeFactor: number;
+}
+
 // Helper function to calculate dynamic pricing
 export const calculateFare = async (
   pickupPoint: string,
   destination: string,
   basePrice: number = 25
-): Promise<number> => {
+): Promise<FareCalculationResult> => {
   try {
     // Convert addresses to coordinates
     const pickupCoords = await geocodeAddress(pickupPoint);
@@ -108,11 +115,27 @@ export const calculateFare = async (
     const calculatedFare = (baseFare + distanceCost + timeCost) * surgeFactor;
     
     // Ensure minimum fare and round to nearest integer
-    return Math.max(Math.round(calculatedFare), baseFare);
+    const finalFare = Math.max(Math.round(calculatedFare), baseFare);
+    
+    return {
+      fare: finalFare,
+      distance: Math.round(distanceKm * 10) / 10, // Round to 1 decimal place
+      baseFare: Math.round(baseFare),
+      distanceCost: Math.round(distanceCost),
+      timeCost: Math.round(timeCost),
+      surgeFactor
+    };
   } catch (error) {
     console.error("Error calculating fare:", error);
     // Default fare if calculation fails
-    return Math.round(basePrice * 5);
+    return {
+      fare: Math.round(basePrice * 5),
+      distance: 5,
+      baseFare: basePrice,
+      distanceCost: basePrice * 2,
+      timeCost: basePrice * 2,
+      surgeFactor: 1.0
+    };
   }
 };
 
@@ -126,28 +149,22 @@ export const useRides = () => {
     const fetchRides = async () => {
       try {
         setLoading(true);
+        console.log("Fetching rides from Supabase");
         
         // Fetch rides from Supabase
         const { data, error } = await supabase
           .from('rides')
           .select(`
-            id,
-            driver_id,
-            pickup_point,
-            destination,
-            pickup_date,
-            pickup_time_start,
-            pickup_time_end,
-            car_name,
-            fare,
-            is_courier_available,
-            luggage_capacity,
-            seats,
-            created_at,
-            profiles(name, photo_url)
+            *,
+            profiles:driver_id(name, photo_url)
           `);
           
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching rides:", error);
+          throw error;
+        }
+        
+        console.log("Fetched rides:", data);
         
         // Format the data to match the Ride interface
         const formattedRides = data.map(ride => {
@@ -177,6 +194,7 @@ export const useRides = () => {
           };
         });
         
+        console.log("Formatted rides:", formattedRides);
         setRides(formattedRides);
         setLoading(false);
       } catch (err) {
@@ -196,29 +214,21 @@ export const useRides = () => {
         schema: 'public', 
         table: 'rides' 
       }, async (payload) => {
+        console.log("New ride detected:", payload);
+        
         // Fetch the newly added ride with the driver's profile
         const { data, error } = await supabase
           .from('rides')
           .select(`
-            id,
-            driver_id,
-            pickup_point,
-            destination,
-            pickup_date,
-            pickup_time_start,
-            pickup_time_end,
-            car_name,
-            fare,
-            is_courier_available,
-            luggage_capacity,
-            seats,
-            created_at,
-            profiles(name, photo_url)
+            *,
+            profiles:driver_id(name, photo_url)
           `)
           .eq('id', payload.new.id)
           .single();
           
         if (!error && data) {
+          console.log("Fetched new ride details:", data);
+          
           // Handle the case where profiles is a SelectQueryError
           const profileData = data.profiles as any;
           const driverName = profileData && typeof profileData === 'object' ? 
@@ -244,6 +254,8 @@ export const useRides = () => {
             seats: data.seats,
             created_at: new Date(data.created_at || Date.now())
           }, ...currentRides]);
+        } else {
+          console.error("Error fetching new ride details:", error);
         }
       })
       .subscribe();
@@ -256,6 +268,8 @@ export const useRides = () => {
   // Add a new ride
   const addRide = async (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => {
     try {
+      console.log("Adding new ride:", ride);
+      
       const { data: newRide, error } = await supabase
         .from('rides')
         .insert({
@@ -274,8 +288,12 @@ export const useRides = () => {
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error adding ride:", error);
+        throw error;
+      }
       
+      console.log("New ride added successfully:", newRide);
       return newRide;
     } catch (err) {
       console.error("Error adding ride:", err);
@@ -287,13 +305,19 @@ export const useRides = () => {
   // Remove a ride
   const removeRide = async (rideId: string) => {
     try {
+      console.log("Removing ride:", rideId);
+      
       const { error } = await supabase
         .from('rides')
         .delete()
         .eq('id', rideId);
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error removing ride:", error);
+        throw error;
+      }
       
+      console.log("Ride removed successfully");
       setRides(rides.filter(ride => ride.id !== rideId));
     } catch (err) {
       console.error("Error removing ride:", err);
@@ -302,7 +326,7 @@ export const useRides = () => {
     }
   };
 
-  // Search for rides - Improved to include current user's rides
+  // Search for rides - Fixed to include all matching rides
   const searchRides = (
     pickupPoint: string,
     destination: string,
@@ -312,17 +336,23 @@ export const useRides = () => {
       return [];
     }
     
+    console.log("Searching rides with parameters:", { pickupPoint, destination, date });
+    console.log("Available rides:", rides);
+    
     const normalizedPickup = pickupPoint.toLowerCase().trim();
     const normalizedDest = destination.toLowerCase().trim();
     
-    // Include all rides that match the criteria without filtering by user
-    return rides.filter(ride => {
-      const matchesPickup = ride.pickup_point.toLowerCase().includes(normalizedPickup);
-      const matchesDest = ride.destination.toLowerCase().includes(normalizedDest);
-      const matchesDate = !date || ride.pickup_date === date;
+    // Include all rides that match the criteria
+    const results = rides.filter(ride => {
+      const matchesPickup = normalizedPickup ? ride.pickup_point.toLowerCase().includes(normalizedPickup) : true;
+      const matchesDest = normalizedDest ? ride.destination.toLowerCase().includes(normalizedDest) : true;
+      const matchesDate = date ? ride.pickup_date === date : true;
       
       return matchesPickup && matchesDest && matchesDate;
     });
+    
+    console.log("Search results:", results);
+    return results;
   };
 
   return {

@@ -38,6 +38,14 @@ export type RideFormValues = z.infer<typeof formSchema>;
 const RideRegistrationForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [calculatedFare, setCalculatedFare] = useState<number | null>(null);
+  const [fareDetails, setFareDetails] = useState<{
+    distance: number;
+    baseFare: number;
+    distanceCost: number;
+    timeCost: number;
+    surgeFactor: number;
+  } | null>(null);
+  
   const navigate = useNavigate();
   const { user } = useUser();
   const { calculateFare } = useRidesContext();
@@ -66,17 +74,31 @@ const RideRegistrationForm = () => {
   const updateFareCalculation = useCallback(async () => {
     if (pickupPoint.length > 2 && destination.length > 2) {
       try {
-        const fare = await calculateFare(pickupPoint, destination);
-        setCalculatedFare(fare);
+        console.log("Calculating fare between:", pickupPoint, destination);
+        const fareResult = await calculateFare(pickupPoint, destination);
+        console.log("Fare calculation result:", fareResult);
+        
+        setCalculatedFare(fareResult.fare);
+        setFareDetails({
+          distance: fareResult.distance,
+          baseFare: fareResult.baseFare,
+          distanceCost: fareResult.distanceCost,
+          timeCost: fareResult.timeCost,
+          surgeFactor: fareResult.surgeFactor
+        });
       } catch (err) {
         console.error("Error calculating fare:", err);
+        setCalculatedFare(null);
+        setFareDetails(null);
       }
     }
   }, [pickupPoint, destination, calculateFare]);
 
   // Update fare when locations change
   useEffect(() => {
-    updateFareCalculation();
+    if (pickupPoint && destination) {
+      updateFareCalculation();
+    }
   }, [pickupPoint, destination, updateFareCalculation]);
 
   const onSubmit = async (values: RideFormValues) => {
@@ -99,12 +121,25 @@ const RideRegistrationForm = () => {
       }
       
       let fare: number;
+      let fareData: any;
+      
       if (calculatedFare) {
         fare = calculatedFare;
+        fareData = fareDetails;
       } else {
         // Calculate fare before submitting
-        fare = await calculateFare(values.pickupPoint, values.destination);
+        const fareResult = await calculateFare(values.pickupPoint, values.destination);
+        fare = fareResult.fare;
+        fareData = {
+          distance: fareResult.distance,
+          baseFare: fareResult.baseFare,
+          distanceCost: fareResult.distanceCost,
+          timeCost: fareResult.timeCost,
+          surgeFactor: fareResult.surgeFactor
+        };
       }
+      
+      console.log("Submitting ride with fare:", fare, "and details:", fareData);
       
       // Store ride in Supabase
       const { data: newRide, error } = await supabase
@@ -183,7 +218,14 @@ const RideRegistrationForm = () => {
             </div>
           </div>
           
-          <FareDisplay calculatedFare={calculatedFare} />
+          <FareDisplay 
+            calculatedFare={calculatedFare}
+            distance={fareDetails?.distance}
+            baseFare={fareDetails?.baseFare}
+            distanceSurcharge={fareDetails?.distanceCost}
+            timeSurcharge={fareDetails?.timeCost}
+            surgeFactor={fareDetails?.surgeFactor}
+          />
         </div>
 
         <Button 

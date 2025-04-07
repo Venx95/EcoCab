@@ -10,13 +10,25 @@ import {
 
 interface FareDisplayProps {
   calculatedFare: number | null;
+  distance?: number;
+  baseFare?: number;
+  distanceSurcharge?: number;
+  timeSurcharge?: number;
+  surgeFactor?: number;
 }
 
-const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
+const FareDisplay = ({ 
+  calculatedFare, 
+  distance, 
+  baseFare = null, 
+  distanceSurcharge = null, 
+  timeSurcharge = null,
+  surgeFactor = 1.0
+}: FareDisplayProps) => {
   // Calculate fare components for display with improved dynamic calculations
-  const baseFare = calculatedFare ? Math.round(calculatedFare * 0.5) : null;
-  const distanceSurcharge = calculatedFare ? Math.round(calculatedFare * 0.3) : null;
-  const timeSurcharge = calculatedFare ? Math.round(calculatedFare * 0.2) : null;
+  const baseF = baseFare !== null ? baseFare : (calculatedFare ? Math.round(calculatedFare * 0.5) : null);
+  const distanceS = distanceSurcharge !== null ? distanceSurcharge : (calculatedFare ? Math.round(calculatedFare * 0.3) : null);
+  const timeS = timeSurcharge !== null ? timeSurcharge : (calculatedFare ? Math.round(calculatedFare * 0.2) : null);
   
   return (
     <div className="bg-muted p-4 rounded-lg">
@@ -44,16 +56,28 @@ const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
         >
           <div className="flex justify-between">
             <span>Base fare:</span>
-            <span>₹{baseFare}</span>
+            <span>₹{baseF}</span>
           </div>
           <div className="flex justify-between">
             <span>Distance surcharge:</span>
-            <span>₹{distanceSurcharge}</span>
+            <span>₹{distanceS}</span>
           </div>
           <div className="flex justify-between">
             <span>Time of day adjustment:</span>
-            <span>₹{timeSurcharge}</span>
+            <span>₹{timeS}</span>
           </div>
+          {distance && (
+            <div className="flex justify-between text-primary-foreground/70">
+              <span>Distance (approx):</span>
+              <span>{distance.toFixed(1)} km</span>
+            </div>
+          )}
+          {surgeFactor > 1.0 && (
+            <div className="flex justify-between text-primary">
+              <span>Peak hour surcharge:</span>
+              <span>x{surgeFactor.toFixed(1)}</span>
+            </div>
+          )}
         </motion.div>
       )}
       

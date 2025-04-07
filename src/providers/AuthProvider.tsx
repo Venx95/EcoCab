@@ -25,6 +25,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     updateProfile: async (userData: Partial<User>): Promise<void> => {
       await auth.updateProfile(userData);
       return;
+    },
+    // Ensure logout completes properly by explicitly handling it
+    logout: async (): Promise<void> => {
+      try {
+        console.log("Initiating logout");
+        await auth.logout();
+        console.log("Logout completed");
+        // Clear any local storage items if needed
+        localStorage.removeItem('lastRoute');
+        return;
+      } catch (error) {
+        console.error("Logout error:", error);
+        throw error;
+      }
     }
   };
   
