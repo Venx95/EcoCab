@@ -116,60 +116,60 @@ const TimeFields = ({ control, isLoading }: TimeFieldsProps) => {
               <Clock className="mr-2 h-4 w-4 text-primary" />
               Start Time
             </FormLabel>
-            <FormControl>
-              <div className="flex space-x-2">
-                <div className="flex-1">
-                  <Select
-                    value={startHour}
-                    onValueChange={setStartHour}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="animated-btn">
-                      <SelectValue placeholder="Hour" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                        <SelectItem key={h} value={h.toString()}>
-                          {h}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1">
-                  <Select
-                    value={startMinute}
-                    onValueChange={setStartMinute}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="animated-btn">
-                      <SelectValue placeholder="Min" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {['00', '15', '30', '45'].map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-1/3">
-                  <Select
-                    value={startAmPm}
-                    onValueChange={setStartAmPm}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="animated-btn">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AM">AM</SelectItem>
-                      <SelectItem value="PM">PM</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="flex space-x-2">
+              <div className="flex-1">
+                <Select
+                  value={startHour}
+                  onValueChange={setStartHour}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="animated-btn">
+                    <SelectValue placeholder="Hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                      <SelectItem key={h} value={h.toString()}>
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="flex-1">
+                <Select
+                  value={startMinute}
+                  onValueChange={setStartMinute}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="animated-btn">
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['00', '15', '30', '45'].map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-1/3">
+                <Select
+                  value={startAmPm}
+                  onValueChange={setStartAmPm}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="animated-btn">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <FormControl>
               <input type="hidden" {...field} />
             </FormControl>
             <FormMessage />
@@ -186,60 +186,60 @@ const TimeFields = ({ control, isLoading }: TimeFieldsProps) => {
               <Clock className="mr-2 h-4 w-4 text-accent" />
               End Time
             </FormLabel>
-            <FormControl>
-              <div className="flex space-x-2">
-                <div className="flex-1">
-                  <Select
-                    value={endHour}
-                    onValueChange={setEndHour}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="animated-btn">
-                      <SelectValue placeholder="Hour" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                        <SelectItem key={h} value={h.toString()}>
-                          {h}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1">
-                  <Select
-                    value={endMinute}
-                    onValueChange={setEndMinute}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="animated-btn">
-                      <SelectValue placeholder="Min" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {['00', '15', '30', '45'].map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-1/3">
-                  <Select
-                    value={endAmPm}
-                    onValueChange={setEndAmPm}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="animated-btn">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AM">AM</SelectItem>
-                      <SelectItem value="PM">PM</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="flex space-x-2">
+              <div className="flex-1">
+                <Select
+                  value={endHour}
+                  onValueChange={setEndHour}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="animated-btn">
+                    <SelectValue placeholder="Hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                      <SelectItem key={h} value={h.toString()}>
+                        {h}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="flex-1">
+                <Select
+                  value={endMinute}
+                  onValueChange={setEndMinute}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="animated-btn">
+                    <SelectValue placeholder="Min" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['00', '15', '30', '45'].map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-1/3">
+                <Select
+                  value={endAmPm}
+                  onValueChange={setEndAmPm}
+                  disabled={isLoading}
+                >
+                  <SelectTrigger className="animated-btn">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AM">AM</SelectItem>
+                    <SelectItem value="PM">PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <FormControl>
               <input type="hidden" {...field} />
             </FormControl>
             <FormMessage />
