@@ -16,12 +16,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     ...auth,
     login: async (email: string, password: string): Promise<void> => {
       await auth.login(email, password);
+      return;
     },
     signup: async (email: string, password: string, name: string, phoneNumber?: string): Promise<void> => {
       await auth.signup(email, password, name, phoneNumber);
+      return;
     },
     updateProfile: async (userData: Partial<User>): Promise<void> => {
       await auth.updateProfile(userData);
+      return;
     }
   };
   

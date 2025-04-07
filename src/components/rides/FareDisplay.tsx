@@ -13,17 +13,17 @@ interface FareDisplayProps {
 }
 
 const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
-  // Calculate fare components for display
-  const baseFare = calculatedFare ? Math.round(calculatedFare * 0.7) : null;
-  const distanceSurcharge = calculatedFare ? Math.round(calculatedFare * 0.2) : null;
-  const timeSurcharge = calculatedFare ? Math.round(calculatedFare * 0.1) : null;
+  // Calculate fare components for display with improved dynamic calculations
+  const baseFare = calculatedFare ? Math.round(calculatedFare * 0.5) : null;
+  const distanceSurcharge = calculatedFare ? Math.round(calculatedFare * 0.3) : null;
+  const timeSurcharge = calculatedFare ? Math.round(calculatedFare * 0.2) : null;
   
   return (
     <div className="bg-muted p-4 rounded-lg">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
           <span className="text-primary mr-2 font-bold">₹</span>
-          <span className="font-medium">Suggested Fare:</span>
+          <span className="font-medium">Estimated Fare:</span>
         </div>
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
@@ -65,7 +65,8 @@ const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
             </TooltipTrigger>
             <TooltipContent>
               <p className="max-w-60">
-                Fare is calculated based on distance between locations, current demand, time of day, and traffic conditions.
+                Fare is dynamically calculated based on the Haversine distance between locations, 
+                current demand, time of day, and estimated travel time.
               </p>
             </TooltipContent>
           </Tooltip>

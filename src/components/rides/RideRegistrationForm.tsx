@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Car } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -54,7 +54,7 @@ const RideRegistrationForm = () => {
       seats: 4,
       isCourierAvailable: false,
       luggageCapacity: undefined,
-      phoneNumber: ''
+      phoneNumber: user?.phoneNumber || ''
     },
   });
 
@@ -62,20 +62,22 @@ const RideRegistrationForm = () => {
   const pickupPoint = form.watch('pickupPoint');
   const destination = form.watch('destination');
 
-  useEffect(() => {
-    const updateFare = async () => {
-      if (pickupPoint.length > 2 && destination.length > 2) {
-        try {
-          const fare = await calculateFare(pickupPoint, destination);
-          setCalculatedFare(fare);
-        } catch (err) {
-          console.error("Error calculating fare:", err);
-        }
+  // Create memoized function to update fare calculation
+  const updateFareCalculation = useCallback(async () => {
+    if (pickupPoint.length > 2 && destination.length > 2) {
+      try {
+        const fare = await calculateFare(pickupPoint, destination);
+        setCalculatedFare(fare);
+      } catch (err) {
+        console.error("Error calculating fare:", err);
       }
-    };
-
-    updateFare();
+    }
   }, [pickupPoint, destination, calculateFare]);
+
+  // Update fare when locations change
+  useEffect(() => {
+    updateFareCalculation();
+  }, [pickupPoint, destination, updateFareCalculation]);
 
   const onSubmit = async (values: RideFormValues) => {
     try {
@@ -100,6 +102,7 @@ const RideRegistrationForm = () => {
       if (calculatedFare) {
         fare = calculatedFare;
       } else {
+        // Calculate fare before submitting
         fare = await calculateFare(values.pickupPoint, values.destination);
       }
       
@@ -141,6 +144,7 @@ const RideRegistrationForm = () => {
           <LocationFields 
             control={form.control} 
             isLoading={isLoading} 
+            updateFareCalculation={updateFareCalculation}
           />
           
           <TimeFields 
@@ -159,7 +163,7 @@ const RideRegistrationForm = () => {
             isCourierAvailable={isCourierAvailable}
           />
           
-          {/* Add Phone Number Field */}
+          {/* Phone Number Field */}
           <div className="space-y-2">
             <div className="form-group">
               <label htmlFor="phoneNumber" className="text-sm font-medium">Phone Number</label>
