@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Calendar, Clock } from "lucide-react";
 import { Control } from "react-hook-form";
 import { useState, useEffect } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 interface TimeFieldsProps {
   control: Control<any>;
@@ -12,13 +12,13 @@ interface TimeFieldsProps {
 }
 
 const TimeFields = ({ control, isLoading }: TimeFieldsProps) => {
-  const [startHour, setStartHour] = useState<string>("");
-  const [startMinute, setStartMinute] = useState<string>("");
+  const [startHour, setStartHour] = useState<string>("12");
+  const [startMinute, setStartMinute] = useState<string>("00");
   const [startAmPm, setStartAmPm] = useState<string>("AM");
   
-  const [endHour, setEndHour] = useState<string>("");
-  const [endMinute, setEndMinute] = useState<string>("");
-  const [endAmPm, setEndAmPm] = useState<string>("AM");
+  const [endHour, setEndHour] = useState<string>("12");
+  const [endMinute, setEndMinute] = useState<string>("00");
+  const [endAmPm, setEndAmPm] = useState<string>("PM");
 
   // Set time in 24-hour format for the form
   useEffect(() => {
@@ -82,6 +82,34 @@ const TimeFields = ({ control, isLoading }: TimeFieldsProps) => {
     }
   }, [control._formValues.pickupTimeEnd]);
 
+  const handleTimeChange = (field: 'startHour' | 'startMinute' | 'endHour' | 'endMinute', value: string) => {
+    if (field === 'startHour') {
+      if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 12)) {
+        setStartHour(value);
+      }
+    } else if (field === 'startMinute') {
+      if (value === '' || (parseInt(value) >= 0 && parseInt(value) < 60)) {
+        setStartMinute(value.padStart(2, '0'));
+      }
+    } else if (field === 'endHour') {
+      if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= 12)) {
+        setEndHour(value);
+      }
+    } else if (field === 'endMinute') {
+      if (value === '' || (parseInt(value) >= 0 && parseInt(value) < 60)) {
+        setEndMinute(value.padStart(2, '0'));
+      }
+    }
+  };
+
+  const toggleAmPm = (field: 'start' | 'end') => {
+    if (field === 'start') {
+      setStartAmPm(prev => prev === 'AM' ? 'PM' : 'AM');
+    } else {
+      setEndAmPm(prev => prev === 'AM' ? 'PM' : 'AM');
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <FormField
@@ -116,61 +144,39 @@ const TimeFields = ({ control, isLoading }: TimeFieldsProps) => {
               <Clock className="mr-2 h-4 w-4 text-primary" />
               Start Time
             </FormLabel>
-            <div className="flex space-x-2">
-              <div className="flex-1">
-                <Select
-                  value={startHour}
-                  onValueChange={setStartHour}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="animated-btn">
-                    <SelectValue placeholder="Hour" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                      <SelectItem key={h} value={h.toString()}>
-                        {h}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1">
-                <Select
-                  value={startMinute}
-                  onValueChange={setStartMinute}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="animated-btn">
-                    <SelectValue placeholder="Min" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['00', '15', '30', '45'].map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-1/3">
-                <Select
-                  value={startAmPm}
-                  onValueChange={setStartAmPm}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="animated-btn">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AM">AM</SelectItem>
-                    <SelectItem value="PM">PM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <FormControl>
-              <input type="hidden" {...field} />
+              <div className="flex items-center border rounded-md p-2">
+                <Input
+                  type="number" 
+                  className="w-12 border-none text-center p-0"
+                  value={startHour}
+                  min={1}
+                  max={12}
+                  disabled={isLoading}
+                  onChange={(e) => handleTimeChange('startHour', e.target.value)}
+                />
+                <span>:</span>
+                <Input
+                  type="number" 
+                  className="w-12 border-none text-center p-0"
+                  value={startMinute}
+                  min={0}
+                  max={59}
+                  disabled={isLoading}
+                  onChange={(e) => handleTimeChange('startMinute', e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => toggleAmPm('start')}
+                  disabled={isLoading}
+                >
+                  {startAmPm}
+                </Button>
+                <input type="hidden" {...field} />
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -186,61 +192,39 @@ const TimeFields = ({ control, isLoading }: TimeFieldsProps) => {
               <Clock className="mr-2 h-4 w-4 text-accent" />
               End Time
             </FormLabel>
-            <div className="flex space-x-2">
-              <div className="flex-1">
-                <Select
-                  value={endHour}
-                  onValueChange={setEndHour}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="animated-btn">
-                    <SelectValue placeholder="Hour" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                      <SelectItem key={h} value={h.toString()}>
-                        {h}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1">
-                <Select
-                  value={endMinute}
-                  onValueChange={setEndMinute}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="animated-btn">
-                    <SelectValue placeholder="Min" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {['00', '15', '30', '45'].map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-1/3">
-                <Select
-                  value={endAmPm}
-                  onValueChange={setEndAmPm}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="animated-btn">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="AM">AM</SelectItem>
-                    <SelectItem value="PM">PM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <FormControl>
-              <input type="hidden" {...field} />
+              <div className="flex items-center border rounded-md p-2">
+                <Input
+                  type="number" 
+                  className="w-12 border-none text-center p-0"
+                  value={endHour}
+                  min={1}
+                  max={12}
+                  disabled={isLoading}
+                  onChange={(e) => handleTimeChange('endHour', e.target.value)}
+                />
+                <span>:</span>
+                <Input
+                  type="number" 
+                  className="w-12 border-none text-center p-0"
+                  value={endMinute}
+                  min={0}
+                  max={59}
+                  disabled={isLoading}
+                  onChange={(e) => handleTimeChange('endMinute', e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => toggleAmPm('end')}
+                  disabled={isLoading}
+                >
+                  {endAmPm}
+                </Button>
+                <input type="hidden" {...field} />
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>

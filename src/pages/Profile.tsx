@@ -33,10 +33,21 @@ const Profile = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
+        
+        // Create a default profile from user data
+        const defaultProfile = {
+          name: user.name || 'User',
+          email: user.email || '',
+          phone_number: user.phoneNumber,
+          photo_url: user.photoURL
+        };
         
         // First, try to get profile from Supabase
         try {
@@ -46,7 +57,12 @@ const Profile = () => {
             .eq('id', user.id)
             .single();
             
-          if (error) throw error;
+          if (error) {
+            console.error('Error fetching profile from Supabase:', error);
+            // If Supabase fetch fails, use the default profile
+            setProfile(defaultProfile);
+            return;
+          }
           
           if (data) {
             setProfile(data);
@@ -54,19 +70,18 @@ const Profile = () => {
           }
         } catch (error) {
           console.error('Error fetching profile from Supabase:', error);
-          // If Supabase fetch fails, continue to fallback
         }
         
         // Fallback to user data from auth context
-        setProfile({
-          name: user.name,
-          email: user.email,
-          phone_number: user.phoneNumber,
-          photo_url: user.photoURL
-        });
+        setProfile(defaultProfile);
       } catch (error) {
         console.error('Error fetching profile:', error);
         toast.error('Could not load profile data');
+        // Set a minimal profile to prevent UI issues
+        setProfile({
+          name: user?.name || 'User',
+          email: user?.email || '',
+        });
       } finally {
         setLoading(false);
       }
@@ -86,14 +101,17 @@ const Profile = () => {
   const handleLogout = async () => {
     try {
       // First, try to clear local session
-      localStorage.removeItem('sb-fnvfltaomsxewwojqtvv-auth-token');
+      try {
+        localStorage.removeItem('sb-fnvfltaomsxewwojqtvv-auth-token');
+      } catch (e) {
+        console.error("Error clearing local storage:", e);
+      }
       
       try {
         // Try to logout through Supabase
         await logout();
       } catch (error) {
         console.error('Supabase logout failed:', error);
-        // Continue even if Supabase logout fails
       }
       
       // Always succeed with the user experience
@@ -101,7 +119,9 @@ const Profile = () => {
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Logout failed');
+      toast.error('Logout failed, please try again');
+      // Force logout by clearing user state
+      window.location.href = '/login';
     }
   };
 

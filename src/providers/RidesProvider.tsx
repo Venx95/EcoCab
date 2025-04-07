@@ -1,3 +1,4 @@
+
 import { ReactNode, createContext, useContext, useState } from 'react';
 import { useRides, Ride, FareCalculationResult } from '@/hooks/useRides';
 
@@ -63,11 +64,11 @@ const sampleRides: Ride[] = [
 
 export const RidesProvider = ({ children }: RidesProviderProps) => {
   const ridesData = useRides();
-  const [offlineMode] = useState(false);
+  const [offlineMode] = useState(true); // Set to true to always use offline mode until Supabase is fixed
   
   // Create a wrapper that tries the online mode first, then falls back to offline
   const contextValue: RidesContextType = {
-    rides: ridesData.rides.length > 0 || !offlineMode ? ridesData.rides : sampleRides,
+    rides: ridesData.rides.length > 0 && !offlineMode ? ridesData.rides : sampleRides,
     loading: ridesData.loading,
     error: ridesData.error,
     addRide: async (ride) => {
@@ -75,7 +76,21 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
         return await ridesData.addRide(ride);
       } catch (error) {
         console.error("Error adding ride, using offline mode:", error);
-        return { id: `offline-${Date.now()}` };
+        // Generate a unique ID for the new offline ride
+        const newId = `offline-${Date.now()}`;
+        
+        // Add the ride to the sample rides array
+        const newRide = {
+          ...ride,
+          id: newId,
+          created_at: new Date(),
+          driverName: 'You',
+          driverPhoto: 'https://api.dicebear.com/7.x/personas/svg?seed=you'
+        };
+        
+        sampleRides.push(newRide);
+        
+        return { id: newId };
       }
     },
     removeRide: async (rideId) => {
@@ -83,32 +98,39 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
         await ridesData.removeRide(rideId);
       } catch (error) {
         console.error("Error removing ride:", error);
+        // Remove from sample rides if in offline mode
+        const index = sampleRides.findIndex(r => r.id === rideId);
+        if (index !== -1) {
+          sampleRides.splice(index, 1);
+        }
       }
     },
     searchRides: (pickupPoint, destination, date) => {
-      try {
-        const results = ridesData.searchRides(pickupPoint, destination, date);
-        
-        // If we have online results, return them
-        if (results.length > 0) {
-          return results;
-        }
-        
-        // Otherwise, if in offline mode, filter the sample data
-        if (offlineMode) {
-          return sampleRides.filter(ride => {
-            const matchesPickup = !pickupPoint || ride.pickup_point.toLowerCase().includes(pickupPoint.toLowerCase());
-            const matchesDest = !destination || ride.destination.toLowerCase().includes(destination.toLowerCase());
-            const matchesDate = !date || ride.pickup_date === date;
-            return matchesPickup && matchesDest && matchesDate;
-          });
-        }
-        
-        return results;
-      } catch (error) {
-        console.error("Error searching rides:", error);
-        return [];
+      // First try online search
+      const onlineResults = ridesData.searchRides(pickupPoint, destination, date);
+      
+      if (onlineResults.length > 0 && !offlineMode) {
+        return onlineResults;
       }
+      
+      // Fall back to offline search
+      if (!pickupPoint && !destination) {
+        return sampleRides;
+      }
+      
+      const normalizedPickup = pickupPoint.toLowerCase().trim();
+      const normalizedDest = destination.toLowerCase().trim();
+      
+      const results = sampleRides.filter(ride => {
+        const matchesPickup = !normalizedPickup || ride.pickup_point.toLowerCase().includes(normalizedPickup);
+        const matchesDest = !normalizedDest || ride.destination.toLowerCase().includes(normalizedDest);
+        const matchesDate = !date || ride.pickup_date === date;
+        
+        return matchesPickup && matchesDest && matchesDate;
+      });
+      
+      console.log("Offline search results:", results);
+      return results;
     },
     calculateFare: ridesData.calculateFare,
   };
