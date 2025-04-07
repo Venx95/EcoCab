@@ -12,12 +12,12 @@ interface AppShellProps {
 
 const AppShell = ({ children }: AppShellProps) => {
   const location = useLocation();
-  // Only show navbar on login and signup pages
-  const showNavbar = location.pathname === '/login' || location.pathname === '/signup';
+  // Only hide navbar on login and signup pages
+  const hideNavbar = location.pathname === '/login' || location.pathname === '/signup';
   
   return (
     <div className="min-h-screen flex flex-col">
-      {showNavbar && <Navbar />}
+      {!hideNavbar && <Navbar />}
       <motion.main 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -27,8 +27,8 @@ const AppShell = ({ children }: AppShellProps) => {
         {children}
       </motion.main>
       <Toaster position="top-center" />
-      {/* Only show bottom navigation if not on login or signup pages */}
-      {!showNavbar && <BottomNavigation />}
+      {/* Always show bottom navigation except on login/signup */}
+      {!hideNavbar && <BottomNavigation />}
     </div>
   );
 };

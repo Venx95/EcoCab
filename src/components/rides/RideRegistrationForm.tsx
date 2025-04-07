@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { useUser } from '@/hooks/useUser';
 import { useRidesContext } from '@/providers/RidesProvider';
+import { supabase } from '@/integrations/supabase/client';
 
 import LocationFields from './LocationFields';
 import TimeFields from './TimeFields';
@@ -38,7 +39,7 @@ const RideRegistrationForm = () => {
   const [calculatedFare, setCalculatedFare] = useState<number | null>(null);
   const navigate = useNavigate();
   const { user } = useUser();
-  const { addRide, calculateFare } = useRidesContext();
+  const { calculateFare } = useRidesContext();
 
   const form = useForm<RideFormValues>({
     resolver: zodResolver(formSchema),
@@ -74,32 +75,42 @@ const RideRegistrationForm = () => {
     try {
       setIsLoading(true);
       
+      if (!user) {
+        toast.error("You must be logged in to register a ride");
+        return;
+      }
+      
       if (!calculatedFare) {
         updateFareCalculation();
       }
       
       const fareAmount = calculatedFare || calculateFare(values.pickupPoint, values.destination);
       
-      addRide({
-        driverId: user!.id,
-        driverName: user!.name,
-        driverPhoto: user!.photoURL,
-        driverPhone: user!.phoneNumber, // Include driver's phone number
-        pickupPoint: values.pickupPoint,
-        destination: values.destination,
-        pickupDate: values.pickupDate,
-        pickupTimeStart: values.pickupTimeStart,
-        pickupTimeEnd: values.pickupTimeEnd,
-        carName: values.carName,
-        fare: fareAmount,
-        isCourierAvailable: values.isCourierAvailable,
-        luggageCapacity: values.luggageCapacity,
-        seats: values.seats,
-      });
+      // Store ride in Supabase
+      const { data: newRide, error } = await supabase
+        .from('rides')
+        .insert({
+          driver_id: user.id,
+          pickup_point: values.pickupPoint,
+          destination: values.destination,
+          pickup_date: values.pickupDate,
+          pickup_time_start: values.pickupTimeStart,
+          pickup_time_end: values.pickupTimeEnd,
+          car_name: values.carName,
+          fare: fareAmount,
+          is_courier_available: values.isCourierAvailable,
+          luggage_capacity: values.luggageCapacity,
+          seats: values.seats,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
       
       toast.success('Ride registered successfully');
       navigate('/');
     } catch (error) {
+      console.error("Error registering ride:", error);
       toast.error('Ride registration failed: ' + (error as Error).message);
     } finally {
       setIsLoading(false);

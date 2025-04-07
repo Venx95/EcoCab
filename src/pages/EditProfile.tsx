@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { z } from 'zod';
@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Save, User, Upload } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -41,7 +42,7 @@ const EditProfile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { user, updateProfile } = useUser();
+  const { user } = useUser();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -53,14 +54,65 @@ const EditProfile = () => {
     },
   });
 
+  // Fetch profile data from Supabase
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('name, email, phone_number, photo_url')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) throw error;
+        
+        if (profile) {
+          form.setValue('name', profile.name || '');
+          form.setValue('email', profile.email || '');
+          form.setValue('phoneNumber', profile.phone_number || '');
+          form.setValue('photoURL', profile.photo_url || '');
+          if (profile.photo_url) {
+            setPreviewImage(profile.photo_url);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
+      
+      if (!user) {
+        toast.error('User not authenticated');
+        return;
+      }
+      
+      // Update profile in Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: values.name,
+          phone_number: values.phoneNumber,
+          photo_url: previewImage || values.photoURL,
+        })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      // Also update auth context
       await updateProfile({
         name: values.name,
         phoneNumber: values.phoneNumber,
         photoURL: previewImage || values.photoURL,
       });
+      
       toast.success('Profile updated successfully');
       navigate('/profile');
     } catch (error) {

@@ -6,10 +6,10 @@ interface RidesContextType {
   rides: Ride[];
   loading: boolean;
   error: Error | null;
-  addRide: (ride: Omit<Ride, 'id' | 'createdAt'>) => Ride;
-  removeRide: (rideId: string) => void;
+  addRide: (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => Promise<any>;
+  removeRide: (rideId: string) => Promise<void>;
   searchRides: (pickupPoint: string, destination: string, date: string) => Ride[];
-  calculateFare: (pickupPoint: string, destination: string, basePrice?: number) => number;
+  calculateFare: (pickupPoint: string, destination: string, basePrice?: number) => Promise<number>;
 }
 
 const RidesContext = createContext<RidesContextType | undefined>(undefined);

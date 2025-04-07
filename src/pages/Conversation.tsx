@@ -2,131 +2,196 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser } from '@/hooks/useUser';
-import { useRidesContext } from '@/providers/RidesProvider';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
-  senderId: string;
+  sender_id: string;
   text: string;
   timestamp: Date;
   read: boolean;
 }
 
-interface ConversationData {
+interface ConversationProfile {
   id: string;
-  driverId: string;
-  driverName: string;
-  driverPhoto?: string;
-  messages: Message[];
+  name: string;
+  photo_url?: string;
 }
 
 const Conversation = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useUser();
-  const { rides } = useRidesContext();
-  const [conversation, setConversation] = useState<ConversationData | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [otherUser, setOtherUser] = useState<ConversationProfile | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Find the ride associated with this conversation
-  const ride = rides.find(r => r.id === id);
 
   useEffect(() => {
-    // Load existing conversation or create a new one
-    const storedConversations = localStorage.getItem('ecocab_messages');
-    let conversations = storedConversations ? JSON.parse(storedConversations) : {};
+    if (!id || !user) return;
     
-    if (id && ride) {
-      if (!conversations[id]) {
-        // Initialize new conversation
-        conversations[id] = {
-          id,
-          driverId: ride.driverId,
-          driverName: ride.driverName,
-          driverPhoto: ride.driverPhoto,
-          messages: []
-        };
+    // First, fetch conversation details and other user's profile
+    const fetchConversationDetails = async () => {
+      try {
+        setLoading(true);
         
-        localStorage.setItem('ecocab_messages', JSON.stringify(conversations));
+        // Get conversation to verify user is a participant
+        const { data: conversation, error: convError } = await supabase
+          .from('conversations')
+          .select('user1_id, user2_id')
+          .eq('id', id)
+          .single();
+          
+        if (convError) throw convError;
+        
+        // Make sure user is part of this conversation
+        if (conversation.user1_id !== user.id && conversation.user2_id !== user.id) {
+          toast.error("You don't have access to this conversation");
+          navigate('/messages');
+          return;
+        }
+        
+        // Get other user's profile
+        const otherUserId = conversation.user1_id === user.id ? conversation.user2_id : conversation.user1_id;
+        
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, name, photo_url')
+          .eq('id', otherUserId)
+          .single();
+          
+        if (profileError) throw profileError;
+        
+        setOtherUser(profile);
+        
+        // Get messages
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', id)
+          .order('timestamp', { ascending: true });
+          
+        if (messagesError) throw messagesError;
+        
+        // Format messages
+        const formattedMessages = messagesData.map(message => ({
+          id: message.id,
+          sender_id: message.sender_id,
+          text: message.text,
+          timestamp: new Date(message.timestamp),
+          read: message.read
+        }));
+        
+        setMessages(formattedMessages);
+        
+        // Mark messages as read
+        const unreadMessages = messagesData
+          .filter(msg => msg.receiver_id === user.id && !msg.read)
+          .map(msg => msg.id);
+          
+        if (unreadMessages.length > 0) {
+          await supabase
+            .from('messages')
+            .update({ read: true })
+            .in('id', unreadMessages);
+        }
+      } catch (error) {
+        console.error('Error fetching conversation:', error);
+        toast.error("Couldn't load conversation");
+      } finally {
+        setLoading(false);
       }
+    };
+    
+    fetchConversationDetails();
+    
+    // Set up real-time subscription for new messages
+    const channel = supabase
+      .channel('messages-channel')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages',
+        filter: `conversation_id=eq.${id}`
+      }, (payload) => {
+        // Add new message to the list
+        const newMessage = payload.new;
+        setMessages(prev => [...prev, {
+          id: newMessage.id,
+          sender_id: newMessage.sender_id,
+          text: newMessage.text,
+          timestamp: new Date(newMessage.timestamp),
+          read: newMessage.read
+        }]);
+        
+        // Mark message as read if it's for the current user
+        if (newMessage.receiver_id === user.id) {
+          supabase
+            .from('messages')
+            .update({ read: true })
+            .eq('id', newMessage.id);
+        }
+      })
+      .subscribe();
       
-      setConversation(conversations[id]);
-    } else if (id) {
-      // Try to load conversation directly
-      if (conversations[id]) {
-        setConversation(conversations[id]);
-      } else {
-        toast.error("Conversation not found");
-        navigate('/messages');
-      }
-    }
-  }, [id, ride, navigate]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id, user, navigate]);
 
   useEffect(() => {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [conversation?.messages]);
+  }, [messages]);
 
-  const sendMessage = () => {
-    if (!messageText.trim() || !id || !user) return;
+  const sendMessage = async () => {
+    if (!messageText.trim() || !id || !user || !otherUser) return;
     
-    // Create new message
-    const newMessage = {
-      id: `msg_${Date.now()}`,
-      senderId: user.id,
-      text: messageText.trim(),
-      timestamp: new Date(),
-      read: false
-    };
-    
-    // Update conversation in state
-    setConversation(prev => {
-      if (!prev) return null;
-      
-      const updatedConversation = {
-        ...prev,
-        messages: [...prev.messages, newMessage]
-      };
-      
-      // Save to localStorage
-      const storedConversations = localStorage.getItem('ecocab_messages');
-      let conversations = storedConversations ? JSON.parse(storedConversations) : {};
-      conversations[id] = updatedConversation;
-      localStorage.setItem('ecocab_messages', JSON.stringify(conversations));
-      
-      // Update conversations list for unread badge
-      const conversationsList = localStorage.getItem('ecocab_conversations');
-      if (conversationsList) {
-        const list = JSON.parse(conversationsList);
-        const updatedList = list.map((conv: any) => {
-          if (conv.id === id) {
-            return {
-              ...conv,
-              lastMessage: newMessage.text,
-              lastMessageTime: newMessage.timestamp
-            };
-          }
-          return conv;
+    try {
+      // Create new message
+      const { error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: id,
+          sender_id: user.id,
+          receiver_id: otherUser.id,
+          text: messageText.trim()
         });
-        localStorage.setItem('ecocab_conversations', JSON.stringify(updatedList));
-      }
+        
+      if (msgError) throw msgError;
       
-      return updatedConversation;
-    });
-    
-    // Clear input
-    setMessageText('');
+      // Update conversation last message
+      const { error: convError } = await supabase
+        .from('conversations')
+        .update({
+          last_message: messageText.trim(),
+          last_message_time: new Date().toISOString()
+        })
+        .eq('id', id);
+        
+      if (convError) throw convError;
+      
+      // Clear input
+      setMessageText('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error("Couldn't send message");
+    }
   };
 
-  if (!conversation) {
-    return <div className="flex justify-center items-center h-full">Loading conversation...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-full py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
@@ -142,24 +207,24 @@ const Conversation = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Avatar className="h-10 w-10 mr-3">
-          <AvatarImage src={conversation.driverPhoto} />
-          <AvatarFallback>{conversation.driverName[0]}</AvatarFallback>
+          <AvatarImage src={otherUser?.photo_url} />
+          <AvatarFallback>{otherUser ? otherUser.name[0] : '?'}</AvatarFallback>
         </Avatar>
         <div>
-          <h2 className="font-medium">{conversation.driverName}</h2>
+          <h2 className="font-medium">{otherUser?.name || 'Unknown User'}</h2>
         </div>
       </div>
       
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {conversation.messages.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-10">
             <p>No messages yet</p>
             <p className="text-sm mt-2">Send a message to start the conversation</p>
           </div>
         ) : (
-          conversation.messages.map((message) => {
-            const isOwnMessage = message.senderId === user?.id;
+          messages.map((message) => {
+            const isOwnMessage = message.sender_id === user?.id;
             
             return (
               <div 
@@ -175,7 +240,7 @@ const Conversation = () => {
                 >
                   <p>{message.text}</p>
                   <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </motion.div>
               </div>

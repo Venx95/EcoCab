@@ -3,8 +3,11 @@ import { Ride } from '@/hooks/useRides';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MapPin, Calendar, Clock, Car, User, Phone, MessageCircle } from 'lucide-react';
+import { MapPin, Calendar, Clock, Car, User, Phone, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/hooks/useUser';
+import { toast } from 'sonner';
 
 interface RideCardProps {
   ride: Ride;
@@ -12,36 +15,85 @@ interface RideCardProps {
 
 const RideCard = ({ ride }: RideCardProps) => {
   const navigate = useNavigate();
+  const { user } = useUser();
   
   const {
     id,
     driverName,
     driverPhoto,
-    driverPhone,
-    pickupPoint,
+    pickup_point,
     destination,
-    pickupDate,
-    pickupTimeStart,
-    pickupTimeEnd,
-    carName,
+    pickup_date,
+    pickup_time_start,
+    pickup_time_end,
+    car_name,
     fare,
     seats,
+    driver_id
   } = ride;
 
-  const formattedDate = new Date(pickupDate).toLocaleDateString('en-US', {
+  const formattedDate = new Date(pickup_date).toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
   });
   
-  const handleCall = () => {
-    if (driverPhone) {
-      window.location.href = `tel:${driverPhone}`;
+  const handleCall = async () => {
+    try {
+      // Get driver profile to get their phone number
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('phone_number')
+        .eq('id', driver_id)
+        .single();
+        
+      if (profile?.phone_number) {
+        window.location.href = `tel:${profile.phone_number}`;
+      } else {
+        toast.error("Driver's phone number not available");
+      }
+    } catch (error) {
+      console.error("Error fetching driver's phone:", error);
+      toast.error("Could not retrieve driver's contact information");
     }
   };
 
-  const handleMessage = () => {
-    navigate(`/messages/${id}`);
+  const handleMessage = async () => {
+    if (!user) {
+      toast.error("You must be logged in to send messages");
+      return;
+    }
+    
+    try {
+      // Check if conversation exists
+      const { data: existingConversation } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .or(`user1_id.eq.${driver_id},user2_id.eq.${driver_id}`)
+        .maybeSingle();
+      
+      if (existingConversation) {
+        navigate(`/messages/${existingConversation.id}`);
+      } else {
+        // Create new conversation
+        const { data: newConversation, error } = await supabase
+          .from('conversations')
+          .insert({
+            user1_id: user.id,
+            user2_id: driver_id
+          })
+          .select('id')
+          .single();
+        
+        if (error) throw error;
+        
+        navigate(`/messages/${newConversation.id}`);
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast.error("Could not start conversation");
+    }
   };
 
   return (
@@ -56,7 +108,7 @@ const RideCard = ({ ride }: RideCardProps) => {
             <h3 className="font-semibold">{driverName}</h3>
             <div className="flex items-center text-sm text-muted-foreground">
               <Car className="h-3.5 w-3.5 mr-1" />
-              {carName}
+              {car_name}
             </div>
           </div>
         </div>
@@ -69,7 +121,7 @@ const RideCard = ({ ride }: RideCardProps) => {
               <MapPin className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
               <div>
                 <div className="font-medium">From</div>
-                <div>{pickupPoint}</div>
+                <div>{pickup_point}</div>
               </div>
             </div>
             
@@ -91,7 +143,7 @@ const RideCard = ({ ride }: RideCardProps) => {
               
               <div className="flex items-center space-x-1 text-sm">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span>{pickupTimeStart} - {pickupTimeEnd}</span>
+                <span>{pickup_time_start} - {pickup_time_end}</span>
               </div>
             </div>
             
@@ -104,13 +156,13 @@ const RideCard = ({ ride }: RideCardProps) => {
       </CardContent>
       
       <CardFooter className="flex justify-between">
-        <div className="text-lg font-bold">${fare}</div>
+        <div className="text-lg font-bold">₹{fare}</div>
         <div className="space-x-2">
           <Button size="sm" variant="outline" onClick={handleCall}>
             <Phone className="h-4 w-4" />
           </Button>
           <Button size="sm" variant="outline" onClick={handleMessage}>
-            <MessageCircle className="h-4 w-4" />
+            <MessageSquare className="h-4 w-4" />
           </Button>
           <Button size="sm">Book Now</Button>
         </div>

@@ -9,7 +9,132 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          id: string
+          last_message: string | null
+          last_message_time: string | null
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          id?: string
+          last_message?: string | null
+          last_message_time?: string | null
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          id?: string
+          last_message?: string | null
+          last_message_time?: string | null
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          conversation_id: string
+          id: string
+          read: boolean | null
+          receiver_id: string
+          sender_id: string
+          text: string
+          timestamp: string | null
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          read?: boolean | null
+          receiver_id: string
+          sender_id: string
+          text: string
+          timestamp?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          read?: boolean | null
+          receiver_id?: string
+          sender_id?: string
+          text?: string
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          email: string
+          id: string
+          name: string
+          phone_number: string | null
+          photo_url: string | null
+        }
+        Insert: {
+          email: string
+          id: string
+          name: string
+          phone_number?: string | null
+          photo_url?: string | null
+        }
+        Update: {
+          email?: string
+          id?: string
+          name?: string
+          phone_number?: string | null
+          photo_url?: string | null
+        }
+        Relationships: []
+      }
+      rides: {
+        Row: {
+          car_name: string
+          created_at: string | null
+          destination: string
+          driver_id: string
+          fare: number
+          id: string
+          is_courier_available: boolean | null
+          luggage_capacity: number | null
+          pickup_date: string
+          pickup_point: string
+          pickup_time_end: string
+          pickup_time_start: string
+          seats: number
+        }
+        Insert: {
+          car_name: string
+          created_at?: string | null
+          destination: string
+          driver_id: string
+          fare: number
+          id?: string
+          is_courier_available?: boolean | null
+          luggage_capacity?: number | null
+          pickup_date: string
+          pickup_point: string
+          pickup_time_end: string
+          pickup_time_start: string
+          seats: number
+        }
+        Update: {
+          car_name?: string
+          created_at?: string | null
+          destination?: string
+          driver_id?: string
+          fare?: number
+          id?: string
+          is_courier_available?: boolean | null
+          luggage_capacity?: number | null
+          pickup_date?: string
+          pickup_point?: string
+          pickup_time_end?: string
+          pickup_time_start?: string
+          seats?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

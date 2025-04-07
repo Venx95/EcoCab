@@ -1,5 +1,5 @@
 
-import { DollarSign, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   Tooltip,
@@ -22,7 +22,7 @@ const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
     <div className="bg-muted p-4 rounded-lg">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center">
-          <DollarSign className="h-5 w-5 mr-2 text-primary" />
+          <span className="text-primary mr-2 font-bold">₹</span>
           <span className="font-medium">Suggested Fare:</span>
         </div>
         <motion.div
@@ -31,7 +31,7 @@ const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
           transition={{ duration: 0.3 }}
           className="text-xl font-bold"
         >
-          ${calculatedFare !== null ? calculatedFare : '—'}
+          ₹{calculatedFare !== null ? calculatedFare : '—'}
         </motion.div>
       </div>
       
@@ -44,15 +44,15 @@ const FareDisplay = ({ calculatedFare }: FareDisplayProps) => {
         >
           <div className="flex justify-between">
             <span>Base fare:</span>
-            <span>${baseFare}</span>
+            <span>₹{baseFare}</span>
           </div>
           <div className="flex justify-between">
             <span>Distance surcharge:</span>
-            <span>${distanceSurcharge}</span>
+            <span>₹{distanceSurcharge}</span>
           </div>
           <div className="flex justify-between">
             <span>Time of day adjustment:</span>
-            <span>${timeSurcharge}</span>
+            <span>₹{timeSurcharge}</span>
           </div>
         </motion.div>
       )}

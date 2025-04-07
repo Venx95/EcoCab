@@ -2,39 +2,90 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Loader2 } from 'lucide-react';
 import MessageList from '@/components/messages/MessageList';
 import { useUser } from '@/hooks/useUser';
-import { useRidesContext } from '@/providers/RidesProvider';
+import { supabase } from '@/integrations/supabase/client';
+
+interface Conversation {
+  id: string;
+  driverName: string;
+  driverPhoto?: string;
+  lastMessage: string;
+  lastMessageTime: Date;
+  unread: boolean;
+}
 
 const Messages = () => {
   const { user } = useUser();
-  const { rides } = useRidesContext();
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Load conversations from localStorage
-    const storedConversations = localStorage.getItem('ecocab_conversations');
-    if (storedConversations) {
-      setConversations(JSON.parse(storedConversations));
-    }
+    if (!user) return;
     
-    // Generate conversations from rides if none exist
-    else if (rides.length > 0) {
-      const initConversations = rides.map(ride => ({
-        id: ride.id,
-        driverId: ride.driverId,
-        driverName: ride.driverName,
-        driverPhoto: ride.driverPhoto,
-        lastMessage: 'Click to start conversation',
-        lastMessageTime: new Date(),
-        unread: false
-      }));
-      
-      setConversations(initConversations);
-      localStorage.setItem('ecocab_conversations', JSON.stringify(initConversations));
-    }
-  }, [rides]);
+    const fetchConversations = async () => {
+      try {
+        setLoading(true);
+        
+        // Get all conversations where the current user is a participant
+        const { data: conversationsData, error } = await supabase
+          .from('conversations')
+          .select(`
+            id,
+            user1_id,
+            user2_id,
+            last_message,
+            last_message_time
+          `)
+          .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+          
+        if (error) throw error;
+        
+        // Get details of other participants
+        const conversationsWithDetails = await Promise.all(
+          (conversationsData || []).map(async (conv) => {
+            // Determine which user is the other participant
+            const otherUserId = conv.user1_id === user.id ? conv.user2_id : conv.user1_id;
+            
+            // Get the other participant's profile
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('name, photo_url')
+              .eq('id', otherUserId)
+              .single();
+              
+            // Get unread message count
+            const { data: unreadMessages, error: unreadError } = await supabase
+              .from('messages')
+              .select('id', { count: 'exact' })
+              .eq('conversation_id', conv.id)
+              .eq('receiver_id', user.id)
+              .eq('read', false);
+              
+            if (unreadError) throw unreadError;
+              
+            return {
+              id: conv.id,
+              driverName: profile?.name || 'Unknown User',
+              driverPhoto: profile?.photo_url,
+              lastMessage: conv.last_message || 'No messages yet',
+              lastMessageTime: conv.last_message_time ? new Date(conv.last_message_time) : new Date(),
+              unread: (unreadMessages?.length || 0) > 0
+            };
+          })
+        );
+        
+        setConversations(conversationsWithDetails);
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchConversations();
+  }, [user]);
 
   return (
     <div className="container mx-auto py-6">
@@ -51,7 +102,11 @@ const Messages = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {conversations.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : conversations.length > 0 ? (
               <MessageList conversations={conversations} />
             ) : (
               <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">

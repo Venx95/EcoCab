@@ -1,17 +1,14 @@
 
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useUser } from '@/hooks/useUser';
 
 const Navbar = () => {
-  const { user } = useUser();
-  
   return (
     <header className="bg-white/80 backdrop-blur-md dark:bg-gray-900/80 sticky top-0 z-30 border-b">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center h-16">
           {/* Logo Centered */}
-          <Link to={user ? "/" : "/login"} className="flex items-center space-x-2">
+          <Link to="/" className="flex items-center space-x-2">
             <motion.div
               initial={{ rotate: 0 }}
               animate={{ rotate: 360 }}

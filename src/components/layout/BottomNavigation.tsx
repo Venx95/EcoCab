@@ -1,14 +1,12 @@
 
 import { useNavigate } from 'react-router-dom';
 import { MapPin, BookOpen, MessageSquare, User, PlusCircle } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const BottomNavigation = () => {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-border shadow-lg z-20">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-border shadow-lg z-50">
       <div className="flex items-center justify-around">
         <button 
           onClick={() => navigate('/register-ride')}
