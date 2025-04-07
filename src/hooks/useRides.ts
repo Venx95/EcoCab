@@ -63,7 +63,7 @@ const geocodeAddress = async (address: string): Promise<{lat: number, lng: numbe
   }
 };
 
-interface FareCalculationResult {
+export interface FareCalculationResult {
   fare: number;
   distance: number;
   baseFare: number;

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { useUser } from '@/hooks/useUser';
 import { useRidesContext } from '@/providers/RidesProvider';
+import { FareCalculationResult } from '@/hooks/useRides';
 import { supabase } from '@/integrations/supabase/client';
 
 import LocationFields from './LocationFields';
@@ -121,22 +122,22 @@ const RideRegistrationForm = () => {
       }
       
       let fare: number;
-      let fareData: any;
+      let fareData: FareCalculationResult;
       
       if (calculatedFare) {
         fare = calculatedFare;
-        fareData = fareDetails;
+        fareData = {
+          fare: calculatedFare,
+          distance: fareDetails?.distance || 0,
+          baseFare: fareDetails?.baseFare || 0,
+          distanceCost: fareDetails?.distanceCost || 0,
+          timeCost: fareDetails?.timeCost || 0,
+          surgeFactor: fareDetails?.surgeFactor || 1.0
+        };
       } else {
         // Calculate fare before submitting
-        const fareResult = await calculateFare(values.pickupPoint, values.destination);
-        fare = fareResult.fare;
-        fareData = {
-          distance: fareResult.distance,
-          baseFare: fareResult.baseFare,
-          distanceCost: fareResult.distanceCost,
-          timeCost: fareResult.timeCost,
-          surgeFactor: fareResult.surgeFactor
-        };
+        fareData = await calculateFare(values.pickupPoint, values.destination);
+        fare = fareData.fare;
       }
       
       console.log("Submitting ride with fare:", fare, "and details:", fareData);

@@ -1,6 +1,6 @@
 
 import { ReactNode, createContext, useContext } from 'react';
-import { useRides, Ride } from '@/hooks/useRides';
+import { useRides, Ride, FareCalculationResult } from '@/hooks/useRides';
 
 interface RidesContextType {
   rides: Ride[];
@@ -9,7 +9,7 @@ interface RidesContextType {
   addRide: (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => Promise<any>;
   removeRide: (rideId: string) => Promise<void>;
   searchRides: (pickupPoint: string, destination: string, date: string) => Ride[];
-  calculateFare: (pickupPoint: string, destination: string, basePrice?: number) => Promise<number>;
+  calculateFare: (pickupPoint: string, destination: string, basePrice?: number) => Promise<FareCalculationResult>;
 }
 
 const RidesContext = createContext<RidesContextType | undefined>(undefined);
