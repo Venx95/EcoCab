@@ -104,23 +104,9 @@ const Index = () => {
         </div>
       </div>
       
-      {/* Map Component - Fixed height */}
-      <div className="w-full h-[300px] px-4 py-2">
+      {/* Map Component taking most of the space */}
+      <div className="flex-1 w-full px-4 py-2">
         <MapComponent destination={debouncedMapLocation} height="100%" />
-      </div>
-      
-      {/* Content below map */}
-      <div className="flex-1 px-4 py-2 overflow-y-auto">
-        {/* Content can be added here */}
-        <div className="max-w-lg mx-auto">
-          <h2 className="text-xl font-bold mb-4">Available Options</h2>
-          <div className="space-y-4">
-            {/* Placeholder for ride options or other content */}
-            <div className="p-4 border rounded-lg shadow-sm bg-white">
-              <p className="text-muted-foreground">Search for a location to see available rides</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

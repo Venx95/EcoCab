@@ -49,7 +49,7 @@ const RideRegistrationForm = () => {
   
   const navigate = useNavigate();
   const { user } = useUser();
-  const { calculateFare } = useRidesContext();
+  const { calculateFare, addRide } = useRidesContext();
 
   const form = useForm<RideFormValues>({
     resolver: zodResolver(formSchema),
@@ -113,12 +113,21 @@ const RideRegistrationForm = () => {
       
       // Update the user's phone number if provided
       if (values.phoneNumber) {
-        await supabase
-          .from('profiles')
-          .update({
-            phone_number: values.phoneNumber
-          })
-          .eq('id', user.id);
+        try {
+          const { error: profileUpdateError } = await supabase
+            .from('profiles')
+            .update({
+              phone_number: values.phoneNumber
+            })
+            .eq('id', user.id);
+            
+          if (profileUpdateError) {
+            console.error("Error updating profile:", profileUpdateError);
+          }
+        } catch (profileErr) {
+          console.error("Error updating profile:", profileErr);
+          // Continue with ride registration even if profile update fails
+        }
       }
       
       let fare: number;
@@ -141,27 +150,27 @@ const RideRegistrationForm = () => {
       }
       
       console.log("Submitting ride with fare:", fare, "and details:", fareData);
+
+      // Use the addRide function from context which handles both Supabase and offline modes
+      const rideData = {
+        driver_id: user.id,
+        pickup_point: values.pickupPoint,
+        destination: values.destination,
+        pickup_date: values.pickupDate,
+        pickup_time_start: values.pickupTimeStart,
+        pickup_time_end: values.pickupTimeEnd,
+        car_name: values.carName,
+        fare,
+        is_courier_available: values.isCourierAvailable,
+        luggage_capacity: values.luggageCapacity,
+        seats: values.seats,
+      };
       
-      // Store ride in Supabase
-      const { data: newRide, error } = await supabase
-        .from('rides')
-        .insert({
-          driver_id: user.id,
-          pickup_point: values.pickupPoint,
-          destination: values.destination,
-          pickup_date: values.pickupDate,
-          pickup_time_start: values.pickupTimeStart,
-          pickup_time_end: values.pickupTimeEnd,
-          car_name: values.carName,
-          fare,
-          is_courier_available: values.isCourierAvailable,
-          luggage_capacity: values.luggageCapacity,
-          seats: values.seats,
-        })
-        .select()
-        .single();
+      const result = await addRide(rideData);
       
-      if (error) throw error;
+      if (!result) {
+        throw new Error("Failed to register ride");
+      }
       
       toast.success('Ride registered successfully');
       navigate('/');

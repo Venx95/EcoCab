@@ -1,8 +1,7 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin } from 'lucide-react';
 import L from 'leaflet';
 
 // Fix for default marker icons in Leaflet with React
@@ -113,10 +112,25 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
   
   const { center, zoom } = getMapView();
 
-  const customIcon = (color: string) => new L.DivIcon({
-    className: 'custom-icon',
-    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white;"></div>`,
-    iconSize: [24, 24]
+  // Create custom icons for markers
+  const pickupIcon = new L.Icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  });
+
+  const destinationIcon = new L.Icon({
+    iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
   });
 
   if (isLoading) {
@@ -131,10 +145,10 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
+        center={center}
+        zoom={zoom}
         style={{ width: '100%', height: '100%' }}
       >
-        <ChangeView center={center} zoom={zoom} />
-        
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
@@ -154,6 +168,8 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
             </Popup>
           </Marker>
         )}
+        
+        <ChangeView center={center} zoom={zoom} />
       </MapContainer>
     </div>
   );
