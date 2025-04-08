@@ -11,6 +11,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLocation, setMapLocation] = useState('');
+  const [currentLocationName, setCurrentLocationName] = useState('');
   const { searchRides } = useRidesContext();
   const navigate = useNavigate();
   
@@ -26,26 +27,45 @@ const Index = () => {
   const handleGetCurrentLocation = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           // Use the browser's geolocation API
           const { latitude, longitude } = position.coords;
           
-          // For demonstration, we'll just log the coordinates
-          console.log(`Current location: ${latitude}, ${longitude}`);
-          
-          // In a real app, you would use reverse geocoding to get address
-          // For now, just set the coordinates in the search query
-          const currentLocation = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          setSearchQuery(currentLocation);
-          setMapLocation(currentLocation);
-          
-          // Navigate to booking with current location as pickup and search query as destination
-          navigate('/book-ride', { 
-            state: { 
-              pickupPoint: currentLocation,
-              destination: searchQuery || currentLocation  // If no destination entered, use current location
-            }
-          });
+          try {
+            // Reverse geocode to get location name
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+            );
+            
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+            // Get a readable location name
+            const locationName = data.display_name;
+            
+            setCurrentLocationName(locationName);
+            
+            // Navigate to booking with current location as pickup and search query as destination
+            navigate('/book-ride', { 
+              state: { 
+                pickupPoint: locationName,
+                destination: searchQuery || ''  // Use the search query as destination
+              }
+            });
+            
+          } catch (error) {
+            console.error("Error reverse geocoding:", error);
+            // Fallback to coordinates if reverse geocoding fails
+            const coordsString = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            setCurrentLocationName(coordsString);
+            
+            navigate('/book-ride', { 
+              state: { 
+                pickupPoint: coordsString,
+                destination: searchQuery || ''
+              }
+            });
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -58,9 +78,9 @@ const Index = () => {
   };
   
   return (
-    <div className="relative h-[calc(100vh-4rem)]">
-      {/* Search Bar at the top */}
-      <div className="sticky top-4 z-10 px-4 mb-4">
+    <div className="relative flex flex-col h-[calc(100vh-4rem)]">
+      {/* Search Bar at the top - Fixed position */}
+      <div className="sticky top-0 z-10 px-4 pt-4 pb-2 bg-background">
         <div className="flex items-center gap-2 max-w-lg mx-auto">
           <div className="relative flex-1">
             <Input
@@ -84,9 +104,23 @@ const Index = () => {
         </div>
       </div>
       
-      {/* Map Component */}
-      <div className="h-[calc(100%-60px)] w-full">
-        <MapComponent destination={debouncedMapLocation} />
+      {/* Map Component - Fixed height */}
+      <div className="w-full h-[300px] px-4 py-2">
+        <MapComponent destination={debouncedMapLocation} height="100%" />
+      </div>
+      
+      {/* Content below map */}
+      <div className="flex-1 px-4 py-2 overflow-y-auto">
+        {/* Content can be added here */}
+        <div className="max-w-lg mx-auto">
+          <h2 className="text-xl font-bold mb-4">Available Options</h2>
+          <div className="space-y-4">
+            {/* Placeholder for ride options or other content */}
+            <div className="p-4 border rounded-lg shadow-sm bg-white">
+              <p className="text-muted-foreground">Search for a location to see available rides</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
