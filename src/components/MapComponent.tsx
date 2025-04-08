@@ -145,9 +145,9 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
-        center={center}
-        zoom={zoom}
         style={{ width: '100%', height: '100%' }}
+        zoom={zoom}
+        center={center}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

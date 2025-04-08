@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useRidesContext } from '@/providers/RidesProvider';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,23 +41,49 @@ const Index = () => {
             if (!response.ok) throw new Error('Network response was not ok');
             
             const data = await response.json();
-            // Get a readable location name
-            const locationName = data.display_name;
             
-            setCurrentLocationName(locationName);
+            // Extract just the street and city for a simpler location
+            const address = data.address;
+            let simplifiedLocation = '';
             
-            // Navigate to booking with current location as pickup and search query as destination
+            if (address) {
+              // Try to get the most relevant location info
+              const road = address.road || address.street || '';
+              const suburb = address.suburb || address.neighbourhood || address.hamlet || '';
+              const city = address.city || address.town || address.village || '';
+              
+              // Construct a simplified location string
+              if (road && city) {
+                simplifiedLocation = `${road}, ${city}`;
+              } else if (suburb && city) {
+                simplifiedLocation = `${suburb}, ${city}`;
+              } else if (city) {
+                simplifiedLocation = city;
+              } else {
+                // Fallback to a shorter version of the display name
+                simplifiedLocation = data.display_name.split(',').slice(0, 2).join(',');
+              }
+            } else {
+              // Fallback to coordinates if no address data
+              simplifiedLocation = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            }
+            
+            setCurrentLocationName(simplifiedLocation);
+            
+            // Navigate to booking with simplified location as pickup and search query as destination
             navigate('/book-ride', { 
               state: { 
-                pickupPoint: locationName,
+                pickupPoint: simplifiedLocation,
                 destination: searchQuery || ''  // Use the search query as destination
               }
             });
             
+            toast.success(`Location found: ${simplifiedLocation}`);
+            
           } catch (error) {
             console.error("Error reverse geocoding:", error);
             // Fallback to coordinates if reverse geocoding fails
-            const coordsString = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            const coordsString = `Vadgaon, Pune`;  // Default to Vadgaon, Pune as requested
             setCurrentLocationName(coordsString);
             
             navigate('/book-ride', { 
@@ -65,15 +92,35 @@ const Index = () => {
                 destination: searchQuery || ''
               }
             });
+            
+            toast.info(`Using default location: ${coordsString}`);
           }
         },
         (error) => {
           console.error("Error getting location:", error);
-          alert("Could not get your current location. Please check your browser settings.");
+          toast.error("Could not get your current location. Please check your browser settings.");
+          
+          // Use default location
+          const defaultLocation = "Vadgaon, Pune";
+          navigate('/book-ride', { 
+            state: { 
+              pickupPoint: defaultLocation,
+              destination: searchQuery || ''
+            }
+          });
         }
       );
     } else {
-      alert("Geolocation is not supported by your browser.");
+      toast.error("Geolocation is not supported by your browser.");
+      
+      // Use default location
+      const defaultLocation = "Vadgaon, Pune";
+      navigate('/book-ride', { 
+        state: { 
+          pickupPoint: defaultLocation,
+          destination: searchQuery || ''
+        }
+      });
     }
   };
   

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -15,6 +16,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { useRidesContext } from '@/providers/RidesProvider';
 import BottomNavigation from '@/components/layout/BottomNavigation';
 import RideCard from '@/components/rides/RideCard';
+import { toast } from 'sonner';
 
 const formSchema = z.object({
   pickupPoint: z.string().min(2, "Please enter a pickup location"),
@@ -38,6 +40,8 @@ const BookRide = () => {
   
   const locationState = location.state as LocationState | undefined;
 
+  console.log("Location state:", locationState);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -47,20 +51,36 @@ const BookRide = () => {
     },
   });
 
+  // Auto-search when navigated with location state
   useEffect(() => {
     if (locationState?.pickupPoint && locationState?.destination) {
+      console.log("Auto-searching with:", locationState);
       const timer = setTimeout(() => {
         form.handleSubmit(onSubmit)();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [locationState]);
 
   const onSubmit = (data: FormValues) => {
+    console.log("Submitting search:", data);
     const formattedDate = data.date ? format(data.date, 'yyyy-MM-dd') : '';
-    const results = searchRides(data.pickupPoint, data.destination, formattedDate);
-    setSearchResults(results);
-    setSearched(true);
+    
+    try {
+      const results = searchRides(data.pickupPoint, data.destination, formattedDate);
+      console.log("Search results:", results);
+      setSearchResults(results);
+      setSearched(true);
+      
+      if (results.length === 0) {
+        toast.info('No rides found matching your criteria. Try different locations or dates.');
+      } else {
+        toast.success(`Found ${results.length} rides matching your criteria.`);
+      }
+    } catch (error) {
+      console.error("Error searching rides:", error);
+      toast.error('Error searching for rides. Please try again.');
+    }
   };
 
   return (
@@ -177,9 +197,15 @@ const BookRide = () => {
                 : "No rides found for your search criteria"}
             </h2>
             
-            {searchResults.map((ride) => (
-              <RideCard key={ride.id} ride={ride} />
-            ))}
+            {searchResults.length > 0 ? (
+              searchResults.map((ride) => (
+                <RideCard key={ride.id} ride={ride} />
+              ))
+            ) : (
+              <div className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-gray-600">Try adjusting your search criteria or check back later.</p>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
