@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -113,7 +112,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
   
   const { center, zoom } = getMapView();
 
-  const customIcon = (color: string) => L.divIcon({
+  const customIcon = (color: string) => new L.DivIcon({
     className: 'custom-icon',
     html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white;"></div>`,
     iconSize: [24, 24]
@@ -132,21 +131,17 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
-        center={defaultCenter}
-        zoom={13}
+        center={center} 
+        zoom={zoom}
       >
         <ChangeView center={center} zoom={zoom} />
         
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
         {pickupCoords && (
-          <Marker 
-            position={pickupCoords}
-            icon={customIcon('#22c55e') as L.DivIcon}
-          >
+          <Marker position={pickupCoords}>
             <Popup>
               <strong>Pickup:</strong> {pickupPoint}
             </Popup>
@@ -154,10 +149,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
         )}
         
         {destinationCoords && (
-          <Marker 
-            position={destinationCoords}
-            icon={customIcon('#0ea5e9') as L.DivIcon}
-          >
+          <Marker position={destinationCoords}>
             <Popup>
               <strong>Destination:</strong> {destination}
             </Popup>

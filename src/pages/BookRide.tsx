@@ -1,6 +1,5 @@
-
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
@@ -25,20 +24,37 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface LocationState {
+  pickupPoint?: string;
+  destination?: string;
+}
+
 const BookRide = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { searchRides } = useRidesContext();
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searched, setSearched] = useState(false);
+  
+  const locationState = location.state as LocationState | undefined;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      pickupPoint: '',
-      destination: '',
+      pickupPoint: locationState?.pickupPoint || '',
+      destination: locationState?.destination || '',
       date: undefined,
     },
   });
+
+  useEffect(() => {
+    if (locationState?.pickupPoint && locationState?.destination) {
+      const timer = setTimeout(() => {
+        form.handleSubmit(onSubmit)();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const onSubmit = (data: FormValues) => {
     const formattedDate = data.date ? format(data.date, 'yyyy-MM-dd') : '';

@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Search, Navigation } from 'lucide-react';
+import { Navigation, Search } from 'lucide-react';
 import MapComponent from '@/components/MapComponent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,19 +17,6 @@ const Index = () => {
   // Debounce the map location update to avoid too many API calls
   const debouncedMapLocation = useDebounce(mapLocation, 800);
   
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      // Simple search implementation - assumes user enters a destination
-      const results = searchRides('', searchQuery, '');
-      if (results.length > 0) {
-        navigate('/book-ride', { state: { searchQuery, results } });
-      } else {
-        // If no results, redirect to register ride with the destination pre-filled
-        navigate('/register-ride', { state: { destination: searchQuery } });
-      }
-    }
-  };
-
   const handleMapSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
@@ -48,8 +35,17 @@ const Index = () => {
           
           // In a real app, you would use reverse geocoding to get address
           // For now, just set the coordinates in the search query
-          setSearchQuery(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-          setMapLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          const currentLocation = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          setSearchQuery(currentLocation);
+          setMapLocation(currentLocation);
+          
+          // Navigate to booking with current location as pickup and search query as destination
+          navigate('/book-ride', { 
+            state: { 
+              pickupPoint: currentLocation,
+              destination: searchQuery || currentLocation  // If no destination entered, use current location
+            }
+          });
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -73,12 +69,8 @@ const Index = () => {
               value={searchQuery}
               onChange={handleMapSearch}
               className="pr-10 bg-white/90 backdrop-blur-md border-none shadow-lg"
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
-            <div 
-              className="absolute right-3 top-2.5 cursor-pointer"
-              onClick={handleSearch}
-            >
+            <div className="absolute right-3 top-2.5">
               <Search className="h-5 w-5 text-muted-foreground" />
             </div>
           </div>
