@@ -132,8 +132,8 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
-        zoomControl={true}
-        attributionControl={true}
+        center={defaultCenter}
+        zoom={13}
       >
         <ChangeView center={center} zoom={zoom} />
         
@@ -145,7 +145,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
         {pickupCoords && (
           <Marker 
             position={pickupCoords}
-            icon={customIcon('#22c55e')}
+            icon={customIcon('#22c55e') as L.DivIcon}
           >
             <Popup>
               <strong>Pickup:</strong> {pickupPoint}
@@ -156,7 +156,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
         {destinationCoords && (
           <Marker 
             position={destinationCoords}
-            icon={customIcon('#0ea5e9')}
+            icon={customIcon('#0ea5e9') as L.DivIcon}
           >
             <Popup>
               <strong>Destination:</strong> {destination}
