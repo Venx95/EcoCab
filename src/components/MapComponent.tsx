@@ -46,6 +46,8 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
         );
         
+        if (!response.ok) throw new Error('Network response was not ok');
+        
         const data = await response.json();
         
         if (data && data.length > 0) {
