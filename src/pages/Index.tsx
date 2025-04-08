@@ -4,7 +4,6 @@ import { Navigation, Search } from 'lucide-react';
 import MapComponent from '@/components/MapComponent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useRidesContext } from '@/providers/RidesProvider';
 import { useNavigate } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
@@ -13,7 +12,6 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLocation, setMapLocation] = useState('');
   const [currentLocationName, setCurrentLocationName] = useState('');
-  const { searchRides } = useRidesContext();
   const navigate = useNavigate();
   
   // Debounce the map location update to avoid too many API calls
@@ -47,12 +45,12 @@ const Index = () => {
             let simplifiedLocation = '';
             
             if (address) {
-              // Try to get the most relevant location info
+              // Extract only street/road and city, excluding state, pincode and country
               const road = address.road || address.street || '';
               const suburb = address.suburb || address.neighbourhood || address.hamlet || '';
               const city = address.city || address.town || address.village || '';
               
-              // Construct a simplified location string
+              // Construct a simplified location string with just road/street and city
               if (road && city) {
                 simplifiedLocation = `${road}, ${city}`;
               } else if (suburb && city) {
@@ -60,12 +58,12 @@ const Index = () => {
               } else if (city) {
                 simplifiedLocation = city;
               } else {
-                // Fallback to a shorter version of the display name
-                simplifiedLocation = data.display_name.split(',').slice(0, 2).join(',');
+                // Default location as fallback
+                simplifiedLocation = "Vadgaon, Pune";
               }
             } else {
-              // Fallback to coordinates if no address data
-              simplifiedLocation = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+              // Default to Vadgaon, Pune if no address data
+              simplifiedLocation = "Vadgaon, Pune";
             }
             
             setCurrentLocationName(simplifiedLocation);
@@ -82,18 +80,18 @@ const Index = () => {
             
           } catch (error) {
             console.error("Error reverse geocoding:", error);
-            // Fallback to coordinates if reverse geocoding fails
-            const coordsString = `Vadgaon, Pune`;  // Default to Vadgaon, Pune as requested
-            setCurrentLocationName(coordsString);
+            // Fallback to default location if reverse geocoding fails
+            const defaultLocation = "Vadgaon, Pune";
+            setCurrentLocationName(defaultLocation);
             
             navigate('/book-ride', { 
               state: { 
-                pickupPoint: coordsString,
+                pickupPoint: defaultLocation,
                 destination: searchQuery || ''
               }
             });
             
-            toast.info(`Using default location: ${coordsString}`);
+            toast.info(`Using default location: ${defaultLocation}`);
           }
         },
         (error) => {

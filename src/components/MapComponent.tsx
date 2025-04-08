@@ -146,7 +146,6 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
-        zoom={zoom}
         center={center}
       >
         <TileLayer

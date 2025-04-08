@@ -66,20 +66,20 @@ const sampleRides: Ride[] = [
 export const RidesProvider = ({ children }: RidesProviderProps) => {
   const ridesData = useRides();
   const [offlineRides, setOfflineRides] = useState<Ride[]>(sampleRides);
-  const [offlineMode] = useState(false); // Set to false to try real Supabase first
+  const [offlineMode, setOfflineMode] = useState(false); 
   const [allRides, setAllRides] = useState<Ride[]>([]);
   
   useEffect(() => {
     // Combine online and offline rides
     if (ridesData.rides.length > 0) {
       setAllRides(ridesData.rides);
-    } else if (offlineMode) {
-      setAllRides(offlineRides);
-    } else if (!ridesData.loading && ridesData.error) {
+      setOfflineMode(false);
+    } else if (ridesData.error) {
       console.log("Falling back to offline mode due to error:", ridesData.error);
       setAllRides(offlineRides);
+      setOfflineMode(true);
     }
-  }, [ridesData.rides, ridesData.loading, ridesData.error, offlineRides, offlineMode]);
+  }, [ridesData.rides, ridesData.loading, ridesData.error, offlineRides]);
   
   // Create a wrapper that tries the online mode first, then falls back to offline
   const contextValue: RidesContextType = {
@@ -90,6 +90,19 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
       try {
         const result = await ridesData.addRide(ride);
         toast.success('Ride registered successfully');
+        
+        // Immediately add the new ride to our local state to ensure it shows up in searches
+        const newRide = {
+          ...ride,
+          id: result?.id || `offline-${Date.now()}`,
+          created_at: new Date(),
+          driverName: 'You',
+          driverPhoto: 'https://api.dicebear.com/7.x/personas/svg?seed=you'
+        };
+        
+        // Add to all rides collection to make it visible to other users
+        setAllRides(prev => [newRide, ...prev]);
+        
         return result;
       } catch (error) {
         console.error("Error adding ride, using offline mode:", error);
@@ -108,6 +121,7 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
         };
         
         setOfflineRides(prev => [newRide, ...prev]);
+        setAllRides(prev => [newRide, ...prev]);
         
         return { id: newId };
       }
@@ -115,33 +129,29 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
     removeRide: async (rideId) => {
       try {
         await ridesData.removeRide(rideId);
+        // Also remove from our local state
+        setAllRides(prev => prev.filter(r => r.id !== rideId));
       } catch (error) {
         console.error("Error removing ride:", error);
         // Remove from offline rides
         setOfflineRides(prev => prev.filter(r => r.id !== rideId));
+        setAllRides(prev => prev.filter(r => r.id !== rideId));
       }
     },
     searchRides: (pickupPoint, destination, date) => {
       console.log("Searching rides with params:", { pickupPoint, destination, date });
       console.log("Available rides:", allRides);
       
-      // First try online search
-      const onlineResults = ridesData.searchRides(pickupPoint, destination, date);
-      
-      if (onlineResults.length > 0 && !offlineMode) {
-        console.log("Found online results:", onlineResults);
-        return onlineResults;
-      }
-      
-      // Fall back to offline search
+      // If both inputs are empty, return all rides to make them discoverable
       if (!pickupPoint && !destination) {
-        return offlineRides;
+        return allRides;
       }
       
-      const normalizedPickup = pickupPoint.toLowerCase().trim();
-      const normalizedDest = destination.toLowerCase().trim();
+      const normalizedPickup = pickupPoint?.toLowerCase().trim() || '';
+      const normalizedDest = destination?.toLowerCase().trim() || '';
       
-      const results = offlineRides.filter(ride => {
+      // Filter rides based on search criteria
+      const results = allRides.filter(ride => {
         const matchesPickup = !normalizedPickup || ride.pickup_point.toLowerCase().includes(normalizedPickup);
         const matchesDest = !normalizedDest || ride.destination.toLowerCase().includes(normalizedDest);
         const matchesDate = !date || ride.pickup_date === date;
@@ -149,7 +159,7 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
         return matchesPickup && matchesDest && matchesDate;
       });
       
-      console.log("Offline search results:", results);
+      console.log("Search results:", results);
       return results;
     },
     calculateFare: ridesData.calculateFare,
