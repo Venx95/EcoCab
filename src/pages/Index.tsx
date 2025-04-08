@@ -6,11 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRidesContext } from '@/providers/RidesProvider';
 import { useNavigate } from 'react-router-dom';
+import { useDebounce } from '@/hooks/useDebounce';
 
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [mapLocation, setMapLocation] = useState('');
   const { searchRides } = useRidesContext();
   const navigate = useNavigate();
+  
+  // Debounce the map location update to avoid too many API calls
+  const debouncedMapLocation = useDebounce(mapLocation, 800);
   
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -23,6 +28,12 @@ const Index = () => {
         navigate('/register-ride', { state: { destination: searchQuery } });
       }
     }
+  };
+
+  const handleMapSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    setMapLocation(value); // Update map location when search changes
   };
   
   const handleGetCurrentLocation = () => {
@@ -38,6 +49,7 @@ const Index = () => {
           // In a real app, you would use reverse geocoding to get address
           // For now, just set the coordinates in the search query
           setSearchQuery(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          setMapLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -59,7 +71,7 @@ const Index = () => {
               type="text"
               placeholder="Search location..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleMapSearch}
               className="pr-10 bg-white/90 backdrop-blur-md border-none shadow-lg"
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
@@ -82,7 +94,7 @@ const Index = () => {
       
       {/* Map Component */}
       <div className="h-[calc(100%-60px)] w-full">
-        <MapComponent />
+        <MapComponent destination={debouncedMapLocation} />
       </div>
     </div>
   );
