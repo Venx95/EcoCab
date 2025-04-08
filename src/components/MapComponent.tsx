@@ -1,7 +1,18 @@
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { MapPin } from 'lucide-react';
+import L from 'leaflet';
+
+// Fix for default marker icons in Leaflet with React
+// (Leaflet's default icons have issues with bundlers)
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+});
 
 interface MapComponentProps {
   pickupPoint?: string;
@@ -9,290 +20,149 @@ interface MapComponentProps {
   height?: string;
 }
 
-declare global {
-  interface Window {
-    google: typeof google;
-  }
-}
+// Helper component to update the map view when props change
+const ChangeView = ({ center, zoom }: { center: [number, number]; zoom: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  
+  return null;
+};
 
 const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponentProps) => {
-  const mapRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const mapInstance = useRef<google.maps.Map | null>(null);
-  const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  
-  // Clean up function to remove all markers
-  const clearMarkers = () => {
-    if (markersRef.current) {
-      markersRef.current.forEach(marker => marker.setMap(null));
-      markersRef.current = [];
-    }
-    
-    if (directionsRenderer.current) {
-      directionsRenderer.current.setMap(null);
-    }
-  };
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
+  const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
+  const defaultCenter: [number, number] = [40.749933, -73.98633]; // Default to New York
   
   useEffect(() => {
-    if (!mapRef.current) return;
-    
-    // Display loading state
-    if (isLoading) {
-      mapRef.current.innerHTML = `
-        <div class="flex flex-col items-center justify-center w-full h-full">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-          <p class="text-muted-foreground">Loading map...</p>
-        </div>
-      `;
-    }
-    
-    // Initialize Google Maps
-    const initMap = async () => {
+    // Function to geocode an address to coordinates using OSM Nominatim
+    const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
+      if (!address) return null;
+      
       try {
-        // Check if Google Maps API is already loaded
-        if (window.google && window.google.maps) {
-          if (mapRef.current) {
-            // Clear the loading indicator
-            mapRef.current.innerHTML = '';
-            
-            // Create the map
-            const map = new google.maps.Map(mapRef.current, {
-              center: { lat: 40.749933, lng: -73.98633 }, // Default to New York
-              zoom: 13,
-              mapTypeControl: false,
-              fullscreenControl: true,
-              streetViewControl: false,
-              zoomControl: true
-            });
-            
-            mapInstance.current = map;
-            setMapLoaded(true);
-            setIsLoading(false);
-            
-            // Initialize directions renderer
-            directionsRenderer.current = new google.maps.DirectionsRenderer({
-              suppressMarkers: true, // Don't show default markers as we've created custom ones
-              polylineOptions: {
-                strokeColor: "#22c55e",
-                strokeWeight: 5,
-                strokeOpacity: 0.7
-              }
-            });
-            
-            directionsRenderer.current.setMap(map);
-            
-            // Update map with locations if provided
-            updateMapWithLocations(map);
-            
-            // Add a sample marker for demonstration
-            if (!pickupPoint && !destination) {
-              const marker = new google.maps.Marker({
-                position: { lat: 40.749933, lng: -73.98633 },
-                map: map,
-                title: "Your Location"
-              });
-            }
-          }
-        } else {
-          // Fallback to load Google Maps API dynamically if not already loaded
-          const loader = new Loader({
-            apiKey: "AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg", // This is a public test API key
-            version: "weekly",
-            libraries: ["places"]
-          });
-          
-          await loader.load();
-          
-          if (mapRef.current && window.google) {
-            // Clear the loading indicator
-            mapRef.current.innerHTML = '';
-            
-            // Create the map
-            const map = new google.maps.Map(mapRef.current, {
-              center: { lat: 40.749933, lng: -73.98633 }, // Default to New York
-              zoom: 13,
-              mapTypeControl: false,
-              fullscreenControl: true,
-              streetViewControl: false,
-              zoomControl: true
-            });
-            
-            mapInstance.current = map;
-            setMapLoaded(true);
-            setIsLoading(false);
-            
-            // Initialize directions renderer
-            directionsRenderer.current = new google.maps.DirectionsRenderer({
-              suppressMarkers: true, // Don't show default markers as we've created custom ones
-              polylineOptions: {
-                strokeColor: "#22c55e",
-                strokeWeight: 5,
-                strokeOpacity: 0.7
-              }
-            });
-            
-            directionsRenderer.current.setMap(map);
-            
-            // Update map with locations if provided
-            updateMapWithLocations(map);
-            
-            // Add a sample marker for demonstration
-            if (!pickupPoint && !destination) {
-              const marker = new google.maps.Marker({
-                position: { lat: 40.749933, lng: -73.98633 },
-                map: map,
-                title: "Your Location"
-              });
-            }
-          }
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
+        );
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
         }
+        return null;
       } catch (error) {
-        console.error("Error loading Google Maps:", error);
-        if (mapRef.current) {
-          mapRef.current.innerHTML = `
-            <div class="flex flex-col items-center justify-center w-full h-full">
-              <div class="text-red-500 mb-2">Failed to load map</div>
-              <p class="text-muted-foreground text-sm">Please try refreshing the page</p>
-            </div>
-          `;
-          setIsLoading(false);
-        }
+        console.error("Error geocoding address:", error);
+        return null;
       }
     };
     
-    // Try to initialize the map
-    initMap();
-    
-    return () => {
-      clearMarkers();
-    };
-  }, []); // Only run on mount
-  
-  // Update map when pickup or destination change
-  useEffect(() => {
-    if (mapLoaded && mapInstance.current) {
-      updateMapWithLocations(mapInstance.current);
-    }
-  }, [pickupPoint, destination, mapLoaded]);
-  
-  // Function to update the map with locations
-  const updateMapWithLocations = (map: google.maps.Map) => {
-    // Clear previous markers and routes
-    clearMarkers();
-    
-    if (!pickupPoint && !destination) return;
-    
-    // Convert addresses to coordinates and add markers if provided
-    const bounds = new google.maps.LatLngBounds();
-    const geocoder = new google.maps.Geocoder();
-    
-    if (pickupPoint) {
-      geocoder.geocode({ address: pickupPoint }, (results, status) => {
-        if (status === "OK" && results && results[0] && results[0].geometry) {
-          const position = results[0].geometry.location;
-          
-          // Add pickup marker
-          const pickupMarker = new google.maps.Marker({
-            position,
-            map,
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: "#22c55e", // Green color for pickup
-              fillOpacity: 1,
-              strokeWeight: 2,
-              strokeColor: "#ffffff",
-            },
-            title: "Pickup: " + pickupPoint
-          });
-          
-          markersRef.current.push(pickupMarker);
-          
-          // Add pickup info window
-          const pickupInfo = new google.maps.InfoWindow({
-            content: `<div class="p-2"><strong>Pickup:</strong> ${pickupPoint}</div>`
-          });
-          
-          pickupMarker.addListener("click", () => {
-            pickupInfo.open(map, pickupMarker);
-          });
-          
-          bounds.extend(position);
-          
-          // If both points are available, fit the map to show both
-          if (destination) {
-            map.fitBounds(bounds);
-          } else {
-            map.setCenter(position);
-          }
-        }
-      });
-    }
-    
-    if (destination) {
-      geocoder.geocode({ address: destination }, (results, status) => {
-        if (status === "OK" && results && results[0] && results[0].geometry) {
-          const position = results[0].geometry.location;
-          
-          // Add destination marker
-          const destMarker = new google.maps.Marker({
-            position,
-            map,
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: "#0ea5e9", // Blue color for destination
-              fillOpacity: 1,
-              strokeWeight: 2,
-              strokeColor: "#ffffff",
-            },
-            title: "Destination: " + destination
-          });
-          
-          markersRef.current.push(destMarker);
-          
-          // Add destination info window
-          const destInfo = new google.maps.InfoWindow({
-            content: `<div class="p-2"><strong>Destination:</strong> ${destination}</div>`
-          });
-          
-          destMarker.addListener("click", () => {
-            destInfo.open(map, destMarker);
-          });
-          
-          bounds.extend(position);
-          
-          // If both points are available, fit the map to show both
-          if (pickupPoint) {
-            map.fitBounds(bounds);
-          } else {
-            map.setCenter(position);
-          }
-        }
-      });
-    }
-    
-    // If both pickup and destination are set, try to draw a route between them
-    if (pickupPoint && destination && directionsRenderer.current) {
-      const directionsService = new google.maps.DirectionsService();
+    const fetchCoordinates = async () => {
+      setIsLoading(true);
       
-      directionsService.route({
-        origin: pickupPoint,
-        destination: destination,
-        travelMode: google.maps.TravelMode.DRIVING
-      }, (response, status) => {
-        if (status === "OK" && response && directionsRenderer.current) {
-          directionsRenderer.current.setDirections(response);
-        }
-      });
+      if (pickupPoint) {
+        const coords = await geocodeAddress(pickupPoint);
+        setPickupCoords(coords);
+      } else {
+        setPickupCoords(null);
+      }
+      
+      if (destination) {
+        const coords = await geocodeAddress(destination);
+        setDestinationCoords(coords);
+      } else {
+        setDestinationCoords(null);
+      }
+      
+      setIsLoading(false);
+    };
+    
+    fetchCoordinates();
+  }, [pickupPoint, destination]);
+  
+  // Calculate the center and zoom level based on pickup and destination
+  const getMapView = () => {
+    if (pickupCoords && destinationCoords) {
+      // Center between pickup and destination
+      const centerLat = (pickupCoords[0] + destinationCoords[0]) / 2;
+      const centerLng = (pickupCoords[1] + destinationCoords[1]) / 2;
+      return {
+        center: [centerLat, centerLng] as [number, number],
+        zoom: 10
+      };
+    } else if (pickupCoords) {
+      return {
+        center: pickupCoords,
+        zoom: 13
+      };
+    } else if (destinationCoords) {
+      return {
+        center: destinationCoords,
+        zoom: 13
+      };
+    } else {
+      return {
+        center: defaultCenter,
+        zoom: 13
+      };
     }
   };
   
+  const { center, zoom } = getMapView();
+
+  const customIcon = (color: string) => L.divIcon({
+    className: 'custom-icon',
+    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 2px solid white;"></div>`,
+    iconSize: [24, 24]
+  });
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm flex flex-col items-center justify-center bg-muted" style={{ height }}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+        <p className="text-muted-foreground">Loading map...</p>
+      </div>
+    );
+  }
+  
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm">
-      <div ref={mapRef} className="w-full h-full bg-muted" style={{ height }}></div>
+    <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
+      <MapContainer 
+        center={center}
+        zoom={zoom}
+        style={{ width: '100%', height: '100%' }}
+        zoomControl={true}
+        attributionControl={true}
+      >
+        <ChangeView center={center} zoom={zoom} />
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        
+        {pickupCoords && (
+          <Marker 
+            position={pickupCoords}
+            icon={customIcon('#22c55e')}
+          >
+            <Popup>
+              <strong>Pickup:</strong> {pickupPoint}
+            </Popup>
+          </Marker>
+        )}
+        
+        {destinationCoords && (
+          <Marker 
+            position={destinationCoords}
+            icon={customIcon('#0ea5e9')}
+          >
+            <Popup>
+              <strong>Destination:</strong> {destination}
+            </Popup>
+          </Marker>
+        )}
+      </MapContainer>
     </div>
   );
 };

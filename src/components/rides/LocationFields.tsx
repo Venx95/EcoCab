@@ -1,9 +1,10 @@
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { MapPin } from "lucide-react";
 import { Control } from "react-hook-form";
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface LocationFieldsProps {
   control: Control<any>;
@@ -11,79 +12,82 @@ interface LocationFieldsProps {
   updateFareCalculation: () => void;
 }
 
-declare global {
-  interface Window {
-    google: typeof google;
-  }
+interface SearchResult {
+  display_name: string;
+  lat: string;
+  lon: string;
 }
 
 const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationFieldsProps) => {
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const destinationInputRef = useRef<HTMLInputElement>(null);
+  const [pickupResults, setPickupResults] = useState<SearchResult[]>([]);
+  const [destResults, setDestResults] = useState<SearchResult[]>([]);
+  const [showPickupResults, setShowPickupResults] = useState(false);
+  const [showDestResults, setShowDestResults] = useState(false);
+  const [pickupQuery, setPickupQuery] = useState('');
+  const [destQuery, setDestQuery] = useState('');
   
-  // Initialize Google Maps Autocomplete
-  useEffect(() => {
-    if (!pickupInputRef.current || !destinationInputRef.current) return;
+  // Debounce the search queries to prevent too many API calls
+  const debouncedPickupQuery = useDebounce(pickupQuery, 500);
+  const debouncedDestQuery = useDebounce(destQuery, 500);
+  
+  // Function to search locations using OpenStreetMap Nominatim API
+  const searchLocations = async (query: string): Promise<SearchResult[]> => {
+    if (!query || query.length < 3) return [];
     
-    // Function to check if Google Maps is loaded and initialize autocomplete
-    const initAutocomplete = () => {
-      if (!window.google || !window.google.maps || !window.google.maps.places) return false;
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
+      );
       
-      try {
-        // Options for the autocomplete
-        const options = {
-          types: ['(cities)'],
-          fields: ['address_components', 'formatted_address', 'geometry', 'name']
-        };
-        
-        // Initialize autocomplete for pickup
-        const pickupAutocomplete = new google.maps.places.Autocomplete(
-          pickupInputRef.current,
-          options
-        );
-        
-        // Initialize autocomplete for destination
-        const destAutocomplete = new google.maps.places.Autocomplete(
-          destinationInputRef.current,
-          options
-        );
-        
-        // Add listeners for place selection
-        google.maps.event.addListener(pickupAutocomplete, 'place_changed', () => {
-          const place = pickupAutocomplete.getPlace();
-          if (place.formatted_address && pickupInputRef.current) {
-            pickupInputRef.current.value = place.formatted_address;
-            updateFareCalculation();
-          }
-        });
-        
-        google.maps.event.addListener(destAutocomplete, 'place_changed', () => {
-          const place = destAutocomplete.getPlace();
-          if (place.formatted_address && destinationInputRef.current) {
-            destinationInputRef.current.value = place.formatted_address;
-            updateFareCalculation();
-          }
-        });
-        
-        return true;
-      } catch (error) {
-        console.error("Error initializing Google Maps Autocomplete:", error);
-        return false;
+      if (!response.ok) throw new Error('Network response was not ok');
+      
+      const data = await response.json();
+      return data as SearchResult[];
+    } catch (error) {
+      console.error("Error searching locations:", error);
+      return [];
+    }
+  };
+  
+  // Search for pickup locations when query changes
+  useEffect(() => {
+    if (debouncedPickupQuery) {
+      searchLocations(debouncedPickupQuery).then(results => {
+        setPickupResults(results);
+        setShowPickupResults(results.length > 0);
+      });
+    }
+  }, [debouncedPickupQuery]);
+  
+  // Search for destination locations when query changes
+  useEffect(() => {
+    if (debouncedDestQuery) {
+      searchLocations(debouncedDestQuery).then(results => {
+        setDestResults(results);
+        setShowDestResults(results.length > 0);
+      });
+    }
+  }, [debouncedDestQuery]);
+  
+  // Handle clicks outside of the results dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickupInputRef.current && !pickupInputRef.current.contains(event.target as Node)) {
+        setShowPickupResults(false);
+      }
+      
+      if (destinationInputRef.current && !destinationInputRef.current.contains(event.target as Node)) {
+        setShowDestResults(false);
       }
     };
     
-    // Try to initialize immediately if Google Maps is already loaded
-    if (!initAutocomplete()) {
-      // If Google Maps isn't loaded yet, wait for it
-      const checkGoogleMapsLoaded = setInterval(() => {
-        if (initAutocomplete()) {
-          clearInterval(checkGoogleMapsLoaded);
-        }
-      }, 300);
-      
-      return () => clearInterval(checkGoogleMapsLoaded);
-    }
-  }, [updateFareCalculation]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   return (
     <>
@@ -91,27 +95,51 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
         control={control}
         name="pickupPoint"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="relative">
             <FormLabel className="flex items-center">
               <MapPin className="mr-2 h-4 w-4 text-primary" />
               Pickup Point
             </FormLabel>
             <FormControl>
-              <Input 
-                placeholder="Enter your pickup location" 
-                {...field} 
-                disabled={isLoading}
-                className="animated-btn"
-                ref={(e) => {
-                  // Assign to both the RHF ref and our local ref
-                  field.ref(e);
-                  pickupInputRef.current = e;
-                }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  updateFareCalculation();
-                }}
-              />
+              <div className="relative">
+                <Input 
+                  placeholder="Enter your pickup location" 
+                  {...field}
+                  value={pickupQuery || field.value}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setPickupQuery(value);
+                    field.onChange(value);
+                  }}
+                  onFocus={() => setShowPickupResults(pickupResults.length > 0)}
+                  disabled={isLoading}
+                  className="animated-btn"
+                  ref={(e) => {
+                    pickupInputRef.current = e;
+                    field.ref(e);
+                  }}
+                />
+                
+                {/* Pickup Search Results Dropdown */}
+                {showPickupResults && (
+                  <div className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto">
+                    {pickupResults.map((result, index) => (
+                      <div
+                        key={`pickup-${index}`}
+                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onClick={() => {
+                          field.onChange(result.display_name);
+                          setPickupQuery(result.display_name);
+                          setShowPickupResults(false);
+                          updateFareCalculation();
+                        }}
+                      >
+                        {result.display_name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -122,27 +150,51 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
         control={control}
         name="destination"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className="relative">
             <FormLabel className="flex items-center">
               <MapPin className="mr-2 h-4 w-4 text-accent" />
               Destination
             </FormLabel>
             <FormControl>
-              <Input 
-                placeholder="Enter your destination" 
-                {...field} 
-                disabled={isLoading}
-                className="animated-btn"
-                ref={(e) => {
-                  // Assign to both the RHF ref and our local ref
-                  field.ref(e);
-                  destinationInputRef.current = e;
-                }}
-                onChange={(e) => {
-                  field.onChange(e);
-                  updateFareCalculation();
-                }}
-              />
+              <div className="relative">
+                <Input 
+                  placeholder="Enter your destination" 
+                  {...field}
+                  value={destQuery || field.value}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setDestQuery(value);
+                    field.onChange(value);
+                  }}
+                  onFocus={() => setShowDestResults(destResults.length > 0)}
+                  disabled={isLoading}
+                  className="animated-btn"
+                  ref={(e) => {
+                    destinationInputRef.current = e;
+                    field.ref(e);
+                  }}
+                />
+                
+                {/* Destination Search Results Dropdown */}
+                {showDestResults && (
+                  <div className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto">
+                    {destResults.map((result, index) => (
+                      <div
+                        key={`dest-${index}`}
+                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onClick={() => {
+                          field.onChange(result.display_name);
+                          setDestQuery(result.display_name);
+                          setShowDestResults(false);
+                          updateFareCalculation();
+                        }}
+                      >
+                        {result.display_name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </FormControl>
             <FormMessage />
           </FormItem>
