@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -147,6 +146,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
         center={center}
+        zoom={zoom}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
