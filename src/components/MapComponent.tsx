@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -145,15 +146,15 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
-        center={center}
         zoom={zoom}
+        center={center}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
         {pickupCoords && (
-          <Marker position={pickupCoords}>
+          <Marker position={pickupCoords} icon={pickupIcon}>
             <Popup>
               <strong>Pickup:</strong> {pickupPoint}
             </Popup>
@@ -161,7 +162,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
         )}
         
         {destinationCoords && (
-          <Marker position={destinationCoords}>
+          <Marker position={destinationCoords} icon={destinationIcon}>
             <Popup>
               <strong>Destination:</strong> {destination}
             </Popup>

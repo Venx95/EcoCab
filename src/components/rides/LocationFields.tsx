@@ -131,6 +131,11 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                           field.onChange(result.display_name);
                           setPickupQuery(result.display_name);
                           setShowPickupResults(false);
+                          // Store the coordinates in dataset attributes for fare calculation
+                          if (pickupInputRef.current) {
+                            pickupInputRef.current.dataset.lat = result.lat;
+                            pickupInputRef.current.dataset.lon = result.lon;
+                          }
                           updateFareCalculation();
                         }}
                       >
@@ -186,6 +191,11 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                           field.onChange(result.display_name);
                           setDestQuery(result.display_name);
                           setShowDestResults(false);
+                          // Store the coordinates in dataset attributes for fare calculation
+                          if (destinationInputRef.current) {
+                            destinationInputRef.current.dataset.lat = result.lat;
+                            destinationInputRef.current.dataset.lon = result.lon;
+                          }
                           updateFareCalculation();
                         }}
                       >

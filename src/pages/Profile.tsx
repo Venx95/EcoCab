@@ -17,6 +17,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser } from '@/hooks/useUser';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import MyRides from '@/components/rides/MyRides';
 
 interface Profile {
   name: string;
@@ -141,74 +143,91 @@ const Profile = () => {
         transition={{ duration: 0.3 }}
         className="eco-blur-bg"
       >
-        <Card className="glassmorphism">
-          <CardHeader className="space-y-1">
-            <div className="flex items-center justify-center mb-4">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={profile?.photo_url} alt={profile?.name} />
-                <AvatarFallback>{profile ? getInitials(profile.name) : 'U'}</AvatarFallback>
-              </Avatar>
-            </div>
-            <CardTitle className="text-2xl font-bold text-center">{profile?.name}</CardTitle>
-            <CardDescription className="text-center">
-              {profile?.email}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col space-y-2">
-              <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
-                <div className="flex items-center space-x-2">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                  <span>Phone Number</span>
+        <Tabs defaultValue="profile" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="rides">My Rides</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="profile">
+            <Card className="glassmorphism">
+              <CardHeader className="space-y-1">
+                <div className="flex items-center justify-center mb-4">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={profile?.photo_url} alt={profile?.name} />
+                    <AvatarFallback>{profile ? getInitials(profile.name) : 'U'}</AvatarFallback>
+                  </Avatar>
                 </div>
-                <span className="font-medium">{profile?.phone_number || 'Not provided'}</span>
-              </div>
-              
-              <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
-                <div className="flex items-center space-x-2">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                  <span>Member Since</span>
+                <CardTitle className="text-2xl font-bold text-center">{profile?.name}</CardTitle>
+                <CardDescription className="text-center">
+                  {profile?.email}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                      <span>Phone Number</span>
+                    </div>
+                    <span className="font-medium">{profile?.phone_number || 'Not provided'}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center p-3 bg-muted/50 rounded-md">
+                    <div className="flex items-center space-x-2">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                      <span>Member Since</span>
+                    </div>
+                    <span className="font-medium">{new Date().toLocaleDateString()}</span>
+                  </div>
                 </div>
-                <span className="font-medium">{new Date().toLocaleDateString()}</span>
-              </div>
-            </div>
-            
-            <div className="flex flex-col space-y-3 mt-6">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate('/edit-profile')}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate('/settings')}
-              >
-                <SettingsIcon className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-              
-              <Button 
-                variant="destructive" 
-                className="w-full"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-center">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <User className="w-4 h-4 mr-2" />
-              Member since {new Date().toLocaleDateString()}
-            </div>
-          </CardFooter>
-        </Card>
+                
+                <div className="flex flex-col space-y-3 mt-6">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/edit-profile')}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => navigate('/settings')}
+                  >
+                    <SettingsIcon className="w-4 h-4 mr-2" />
+                    Settings
+                  </Button>
+                  
+                  <Button 
+                    variant="destructive" 
+                    className="w-full"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-center">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <User className="w-4 h-4 mr-2" />
+                  Member since {new Date().toLocaleDateString()}
+                </div>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="rides">
+            <Card className="glassmorphism">
+              <CardContent className="pt-6">
+                <MyRides />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </motion.div>
     </div>
   );

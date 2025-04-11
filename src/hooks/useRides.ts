@@ -44,11 +44,28 @@ export const calculateHaversineDistance = (
   return earthRadius * c;
 };
 
-// Helper function to convert an address to coordinates 
-// In a production app, this would use Google Maps Geocoding API or similar
-const geocodeAddress = async (address: string): Promise<{lat: number, lng: number}> => {
+// Helper function to convert an address to coordinates using OpenStreetMap Nominatim API
+const geocodeAddress = async (address: string): Promise<{lat: number, lng: number} | null> => {
   try {
-    // For demo purposes, we'll simulate coordinates based on string length
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
+    );
+    
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return { 
+        lat: parseFloat(data[0].lat), 
+        lng: parseFloat(data[0].lon) 
+      };
+    }
+    
+    // Fallback to simulated coordinates if geocoding fails
+    console.log("Geocoding failed, using fallback coordinates");
     const hashValue = address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
     // Generate somewhat realistic looking coordinates
@@ -82,6 +99,10 @@ export const calculateFare = async (
     // Convert addresses to coordinates
     const pickupCoords = await geocodeAddress(pickupPoint);
     const destCoords = await geocodeAddress(destination);
+    
+    if (!pickupCoords || !destCoords) {
+      throw new Error("Could not geocode addresses");
+    }
     
     // Calculate distance using Haversine formula
     const distanceKm = calculateHaversineDistance(
