@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from "react";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -15,18 +16,6 @@ interface SearchResult {
   display_name: string;
   lat: string;
   lon: string;
-  address?: {
-    road?: string;
-    house_number?: string;
-    suburb?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    county?: string;
-    state?: string;
-    country?: string;
-    postcode?: string;
-  };
 }
 
 const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationFieldsProps) => {
@@ -39,49 +28,18 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
   const [pickupQuery, setPickupQuery] = useState('');
   const [destQuery, setDestQuery] = useState('');
   
+  // Debounce the search queries to prevent too many API calls
   const debouncedPickupQuery = useDebounce(pickupQuery, 500);
   const debouncedDestQuery = useDebounce(destQuery, 500);
   
-  const formatAddress = (result: SearchResult): string => {
-    if (!result.address) {
-      const parts = result.display_name.split(',');
-      if (parts.length > 2) {
-        return parts.slice(0, Math.min(3, parts.length - 2)).join(',').trim();
-      }
-      return result.display_name;
-    }
-    
-    const address = result.address;
-    const housePart = address.house_number ? `${address.house_number} ` : '';
-    const roadPart = address.road || '';
-    const suburbPart = address.suburb || '';
-    const cityPart = address.city || address.town || address.village || address.county || '';
-    
-    if (roadPart && cityPart) {
-      return housePart && roadPart ? `${housePart}${roadPart}, ${cityPart}` : `${roadPart}, ${cityPart}`;
-    } else if (suburbPart && cityPart) {
-      return `${suburbPart}, ${cityPart}`;
-    } else if (roadPart) {
-      return roadPart;
-    } else if (cityPart) {
-      return cityPart;
-    }
-    
-    const parts = result.display_name.split(',');
-    if (parts.length > 2) {
-      return parts.slice(0, Math.min(3, parts.length - 2)).join(',').trim();
-    }
-    
-    return result.display_name;
-  };
-  
+  // Function to search locations using OpenStreetMap Nominatim API
   const searchLocations = async (query: string): Promise<SearchResult[]> => {
     if (!query || query.length < 3) return [];
     
     try {
       console.log("Searching for location:", query);
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
       );
       
       if (!response.ok) throw new Error('Network response was not ok');
@@ -95,6 +53,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
     }
   };
   
+  // Search for pickup locations when query changes
   useEffect(() => {
     if (debouncedPickupQuery) {
       searchLocations(debouncedPickupQuery).then(results => {
@@ -104,6 +63,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
     }
   }, [debouncedPickupQuery]);
   
+  // Search for destination locations when query changes
   useEffect(() => {
     if (debouncedDestQuery) {
       searchLocations(debouncedDestQuery).then(results => {
@@ -113,6 +73,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
     }
   }, [debouncedDestQuery]);
   
+  // Handle clicks outside of the results dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (pickupInputRef.current && !pickupInputRef.current.contains(event.target as Node)) {
@@ -130,24 +91,27 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
     };
   }, []);
 
+  // Call updateFareCalculation when coordinates are available
   const handleLocationSelect = (
     field: any, 
-    result: SearchResult,
+    locationName: string, 
+    lat: string, 
+    lon: string, 
     inputRef: React.RefObject<HTMLInputElement>,
     setQuery: (query: string) => void,
     setShowResults: (show: boolean) => void
   ) => {
-    const formattedAddress = formatAddress(result);
-    
-    field.onChange(formattedAddress);
-    setQuery(formattedAddress);
+    field.onChange(locationName);
+    setQuery(locationName);
     setShowResults(false);
     
+    // Store the coordinates in dataset attributes for fare calculation
     if (inputRef.current) {
-      inputRef.current.dataset.lat = result.lat;
-      inputRef.current.dataset.lon = result.lon;
+      inputRef.current.dataset.lat = lat;
+      inputRef.current.dataset.lon = lon;
     }
     
+    // Trigger fare calculation after a short delay to ensure both fields are updated
     setTimeout(updateFareCalculation, 100);
   };
   
@@ -180,28 +144,26 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                     pickupInputRef.current = e;
                     field.ref(e);
                   }}
-                  onClick={() => {
-                    if (pickupResults.length > 0) {
-                      setShowPickupResults(true);
-                    }
-                  }}
                 />
                 
+                {/* Pickup Search Results Dropdown */}
                 {showPickupResults && (
-                  <div className="absolute z-50 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto border border-gray-200">
+                  <div className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto">
                     {pickupResults.map((result, index) => (
                       <div
                         key={`pickup-${index}`}
-                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
+                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
                         onClick={() => handleLocationSelect(
                           field, 
-                          result,
+                          result.display_name, 
+                          result.lat, 
+                          result.lon, 
                           pickupInputRef,
                           setPickupQuery,
                           setShowPickupResults
                         )}
                       >
-                        {formatAddress(result)}
+                        {result.display_name}
                       </div>
                     ))}
                   </div>
@@ -240,28 +202,26 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                     destinationInputRef.current = e;
                     field.ref(e);
                   }}
-                  onClick={() => {
-                    if (destResults.length > 0) {
-                      setShowDestResults(true);
-                    }
-                  }}
                 />
                 
+                {/* Destination Search Results Dropdown */}
                 {showDestResults && (
-                  <div className="absolute z-50 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto border border-gray-200">
+                  <div className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-y-auto">
                     {destResults.map((result, index) => (
                       <div
                         key={`dest-${index}`}
-                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm border-b border-gray-100 last:border-b-0"
+                        className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
                         onClick={() => handleLocationSelect(
                           field,
-                          result,
+                          result.display_name,
+                          result.lat,
+                          result.lon,
                           destinationInputRef,
                           setDestQuery,
                           setShowDestResults
                         )}
                       >
-                        {formatAddress(result)}
+                        {result.display_name}
                       </div>
                     ))}
                   </div>

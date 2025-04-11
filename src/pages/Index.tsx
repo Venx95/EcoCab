@@ -23,29 +23,6 @@ const Index = () => {
     setMapLocation(value); // Update map location when search changes
   };
   
-  // Format address to be more user-friendly (no state, zip, country)
-  const formatAddress = (addressComponents: any): string => {
-    if (!addressComponents) return "Unknown Location";
-    
-    const address = addressComponents;
-    // Extract only street/road and city, excluding state, pincode and country
-    const road = address.road || address.street || '';
-    const suburb = address.suburb || address.neighbourhood || address.hamlet || '';
-    const city = address.city || address.town || address.village || '';
-    
-    // Construct a simplified location string with just road/street and city
-    if (road && city) {
-      return `${road}, ${city}`;
-    } else if (suburb && city) {
-      return `${suburb}, ${city}`;
-    } else if (city) {
-      return city;
-    } else {
-      // Default location as fallback
-      return "Vadgaon, Pune";
-    }
-  };
-  
   const handleGetCurrentLocation = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -62,10 +39,32 @@ const Index = () => {
             if (!response.ok) throw new Error('Network response was not ok');
             
             const data = await response.json();
-            console.log("Reverse geocoding result:", data);
             
-            // Format the address using our helper function
-            const simplifiedLocation = formatAddress(data.address);
+            // Extract just the street and city for a simpler location
+            const address = data.address;
+            let simplifiedLocation = '';
+            
+            if (address) {
+              // Extract only street/road and city, excluding state, pincode and country
+              const road = address.road || address.street || '';
+              const suburb = address.suburb || address.neighbourhood || address.hamlet || '';
+              const city = address.city || address.town || address.village || '';
+              
+              // Construct a simplified location string with just road/street and city
+              if (road && city) {
+                simplifiedLocation = `${road}, ${city}`;
+              } else if (suburb && city) {
+                simplifiedLocation = `${suburb}, ${city}`;
+              } else if (city) {
+                simplifiedLocation = city;
+              } else {
+                // Default location as fallback
+                simplifiedLocation = "Vadgaon, Pune";
+              }
+            } else {
+              // Default to Vadgaon, Pune if no address data
+              simplifiedLocation = "Vadgaon, Pune";
+            }
             
             setCurrentLocationName(simplifiedLocation);
             

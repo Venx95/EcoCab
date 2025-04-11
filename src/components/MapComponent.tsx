@@ -68,7 +68,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
       try {
         console.log("Geocoding address:", address);
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
         );
         
         if (!response.ok) throw new Error('Network response was not ok');
@@ -116,25 +116,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
       const centerLat = (pickupCoords[0] + destinationCoords[0]) / 2;
       const centerLng = (pickupCoords[1] + destinationCoords[1]) / 2;
       setMapCenter([centerLat, centerLng]);
-      
-      // Calculate appropriate zoom level based on distance
-      const distance = calculateDistance(
-        pickupCoords[0], 
-        pickupCoords[1], 
-        destinationCoords[0], 
-        destinationCoords[1]
-      );
-      
-      // Adjust zoom based on distance
-      let newZoom = 13;
-      if (distance > 100) newZoom = 7;
-      else if (distance > 50) newZoom = 8;
-      else if (distance > 25) newZoom = 9;
-      else if (distance > 10) newZoom = 10;
-      else if (distance > 5) newZoom = 11;
-      else if (distance > 2) newZoom = 12;
-      
-      setMapZoom(newZoom);
+      setMapZoom(10);
     } else if (pickupCoords) {
       setMapCenter(pickupCoords);
       setMapZoom(13);
@@ -158,6 +140,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
         // Fix: Don't pass center and zoom directly to the component
+        // Instead, set the initial values and use ChangeView for updates
         key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`} // Key to force remount when coordinates change drastically
       >
         <TileLayer
