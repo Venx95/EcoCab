@@ -29,11 +29,36 @@ const ChangeView = ({ center, zoom }: { center: [number, number]; zoom: number }
   return null;
 };
 
+// Calculate distance between two coordinates using the Haversine formula
+export const calculateDistance = (
+  lat1: number, 
+  lon1: number, 
+  lat2: number, 
+  lon2: number
+): number => {
+  // Earth's radius in kilometers
+  const R = 6371;
+  
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c; // Distance in kilometers
+  
+  return distance;
+};
+
 const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponentProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
-  const defaultCenter: [number, number] = [40.749933, -73.98633]; // Default to New York
+  const [mapCenter, setMapCenter] = useState<[number, number]>([40.749933, -73.98633]); // Default to New York
+  const [mapZoom, setMapZoom] = useState<number>(13);
   
   useEffect(() => {
     // Function to geocode an address to coordinates using OSM Nominatim
@@ -83,34 +108,21 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
   }, [pickupPoint, destination]);
   
   // Calculate the center and zoom level based on pickup and destination
-  const getMapView = () => {
+  useEffect(() => {
     if (pickupCoords && destinationCoords) {
       // Center between pickup and destination
       const centerLat = (pickupCoords[0] + destinationCoords[0]) / 2;
       const centerLng = (pickupCoords[1] + destinationCoords[1]) / 2;
-      return {
-        center: [centerLat, centerLng] as [number, number],
-        zoom: 10
-      };
+      setMapCenter([centerLat, centerLng]);
+      setMapZoom(10);
     } else if (pickupCoords) {
-      return {
-        center: pickupCoords,
-        zoom: 13
-      };
+      setMapCenter(pickupCoords);
+      setMapZoom(13);
     } else if (destinationCoords) {
-      return {
-        center: destinationCoords,
-        zoom: 13
-      };
-    } else {
-      return {
-        center: defaultCenter,
-        zoom: 13
-      };
+      setMapCenter(destinationCoords);
+      setMapZoom(13);
     }
-  };
-  
-  const { center, zoom } = getMapView();
+  }, [pickupCoords, destinationCoords]);
 
   if (isLoading) {
     return (
@@ -121,14 +133,16 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     );
   }
   
-  // Fix: Use a default value for center and make sure to specify all required props
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
-        center={center}
-        zoom={zoom}
         scrollWheelZoom={false}
+        // Changed how we provide initial center and zoom to the MapContainer
+        // Instead of passing center and zoom directly, we'll use the ChangeView component
+        // This ensures type safety with react-leaflet
+        center={mapCenter} 
+        zoom={mapZoom}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -150,7 +164,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
           </Marker>
         )}
         
-        <ChangeView center={center} zoom={zoom} />
+        <ChangeView center={mapCenter} zoom={mapZoom} />
       </MapContainer>
     </div>
   );
