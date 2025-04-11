@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/integrations/supabase/client';
 import RideCard from '@/components/rides/RideCard';
@@ -16,7 +16,8 @@ const MyRides = () => {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const fetchMyRides = async () => {
+  // Improved fetch function with better error handling
+  const fetchMyRides = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
@@ -44,11 +45,8 @@ const MyRides = () => {
       
       console.log("Fetched rides data:", data);
       
-      if (!data || data.length === 0) {
-        console.log("No rides found for user");
-        setRides([]);
-        setLoading(false);
-        return;
+      if (!data) {
+        throw new Error("No data returned from the database");
       }
       
       // Format the data to match the Ride interface
@@ -80,40 +78,56 @@ const MyRides = () => {
       
       console.log("Formatted rides:", formattedRides);
       setRides(formattedRides);
+      setLoading(false);
     } catch (err) {
       console.error("Error fetching rides:", err);
-      setError("Failed to load your rides. Please try again later.");
-    } finally {
+      setError("Failed to load your rides. Please try again.");
       setLoading(false);
     }
-  };
+  }, [user]);
   
+  // Refresh rides when user changes or retry count changes
   useEffect(() => {
-    fetchMyRides();
-    
-    // Set up realtime subscription for ride updates
-    const channel = supabase
-      .channel('rides-channel')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'rides',
-        filter: `driver_id=eq.${user?.id}` 
-      }, (payload) => {
-        console.log("Ride change detected:", payload);
-        fetchMyRides();
-      })
-      .subscribe();
+    if (user) {
+      fetchMyRides();
       
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, retryCount]);
+      // Set up realtime subscription for ride updates
+      const channel = supabase
+        .channel('rides-changes')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'rides',
+          filter: `driver_id=eq.${user.id}` 
+        }, () => {
+          console.log("Ride change detected for user, refreshing rides");
+          fetchMyRides();
+        })
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } else {
+      setLoading(false);
+    }
+  }, [user, retryCount, fetchMyRides]);
 
+  // Manual retry function
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
     toast.info("Retrying to load rides...");
   };
+
+  if (!user) {
+    return (
+      <Card className="my-4">
+        <CardContent className="py-8 text-center">
+          <p className="text-muted-foreground">You need to be logged in to view your rides.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (

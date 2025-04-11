@@ -66,7 +66,7 @@ const FareDisplay = ({
             <span>Time of day adjustment:</span>
             <span>₹{timeS}</span>
           </div>
-          {distance && (
+          {distance !== undefined && distance > 0 && (
             <div className="flex justify-between text-primary-foreground/70">
               <span>Distance (approx):</span>
               <span>{distance.toFixed(1)} km</span>
@@ -89,7 +89,7 @@ const FareDisplay = ({
             </TooltipTrigger>
             <TooltipContent>
               <p className="max-w-60">
-                Fare is dynamically calculated based on the Haversine distance between locations, 
+                Fare is dynamically calculated based on the distance between locations, 
                 current demand, time of day, and estimated travel time.
               </p>
             </TooltipContent>

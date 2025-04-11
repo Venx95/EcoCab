@@ -121,12 +121,14 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     );
   }
   
+  // Fix: Use a default value for center and make sure to specify all required props
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
         center={center}
         zoom={zoom}
+        scrollWheelZoom={false}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

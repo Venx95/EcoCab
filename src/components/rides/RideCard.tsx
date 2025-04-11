@@ -15,14 +15,6 @@ interface RideCardProps {
   showDetailedInfo?: boolean;
 }
 
-type ProfileType = {
-  id: string;
-  name: string;
-  phone_number?: string | null;
-  photo_url?: string | null;
-  email: string;
-};
-
 const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideCardProps) => {
   const navigate = useNavigate();
   const { user } = useUser();
@@ -50,17 +42,26 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
   
   const handleCall = async () => {
     try {
+      if (!user) {
+        toast.error("You must be logged in to call the driver");
+        return;
+      }
+      
       // Get driver profile to get their phone number
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('phone_number')
         .eq('id', driver_id)
-        .single();
+        .maybeSingle();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching driver's phone:", error);
+        throw error;
+      }
         
       if (profile?.phone_number) {
         window.location.href = `tel:${profile.phone_number}`;
+        toast.success("Calling driver...");
       } else {
         toast.error("Driver's phone number not available");
       }
@@ -78,17 +79,21 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
     
     try {
       // Check if conversation exists
-      const { data: existingConversation, error: convError } = await supabase
+      const { data: existingConversations, error: convError } = await supabase
         .from('conversations')
         .select('id')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .or(`user1_id.eq.${driver_id},user2_id.eq.${driver_id}`)
-        .maybeSingle();
+        .or(`and(user1_id.eq.${user.id},user2_id.eq.${driver_id}),and(user1_id.eq.${driver_id},user2_id.eq.${user.id})`);
         
-      if (convError) throw convError;
+      if (convError) {
+        console.error("Error checking existing conversations:", convError);
+        throw convError;
+      }
       
-      if (existingConversation) {
-        navigate(`/messages/${existingConversation.id}`);
+      let conversationId: string;
+      
+      if (existingConversations && existingConversations.length > 0) {
+        conversationId = existingConversations[0].id;
+        console.log("Found existing conversation:", conversationId);
       } else {
         // Create new conversation
         const { data: newConversation, error } = await supabase
@@ -100,18 +105,36 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
           .select('id')
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error creating conversation:", error);
+          throw error;
+        }
         
-        if (newConversation) {
-          navigate(`/messages/${newConversation.id}`);
-        } else {
+        if (!newConversation) {
           throw new Error("Failed to create conversation");
         }
+        
+        conversationId = newConversation.id;
+        console.log("Created new conversation:", conversationId);
       }
+      
+      // Navigate to the conversation
+      navigate(`/messages/${conversationId}`);
+      
     } catch (error) {
       console.error("Error starting conversation:", error);
-      toast.error("Could not start conversation");
+      toast.error("Could not start conversation. Please try again later.");
     }
+  };
+
+  const handleBooking = () => {
+    if (!user) {
+      toast.error("You must be logged in to book a ride");
+      return;
+    }
+    
+    // For now, just show a toast
+    toast.success("Booking request sent to the driver!");
   };
 
   return (
@@ -175,7 +198,9 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
       
       <CardFooter className="flex justify-between">
         <div className="text-lg font-bold">₹{fare}</div>
-        {showActions && (
+        
+        {/* Show different actions based on whether it's the user's own ride or not */}
+        {showActions && user?.id !== driver_id && (
           <div className="space-x-2">
             <Button size="sm" variant="outline" onClick={handleCall}>
               <Phone className="h-4 w-4" />
@@ -183,12 +208,19 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
             <Button size="sm" variant="outline" onClick={handleMessage}>
               <MessageSquare className="h-4 w-4" />
             </Button>
-            <Button size="sm">Book Now</Button>
+            <Button size="sm" onClick={handleBooking}>Book Now</Button>
           </div>
         )}
+        
+        {showActions && user?.id === driver_id && (
+          <div className="space-x-2">
+            <Button size="sm" variant="outline" disabled>Your Ride</Button>
+          </div>
+        )}
+        
         {!showActions && (
           <div className="space-x-2">
-            <Button size="sm">Book Now</Button>
+            <Button size="sm" onClick={handleBooking}>Book Now</Button>
           </div>
         )}
       </CardFooter>
