@@ -11,6 +11,7 @@ interface RidesContextType {
   removeRide: (rideId: string) => Promise<void>;
   searchRides: (pickupPoint: string, destination: string, date: string) => Ride[];
   calculateFare: (pickupPoint: string, destination: string, basePrice?: number) => Promise<FareCalculationResult>;
+  refreshRides: () => Promise<void>;
 }
 
 const RidesContext = createContext<RidesContextType | undefined>(undefined);
@@ -68,10 +69,14 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
   const [offlineRides, setOfflineRides] = useState<Ride[]>(sampleRides);
   const [offlineMode, setOfflineMode] = useState(false); 
   const [allRides, setAllRides] = useState<Ride[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   useEffect(() => {
+    console.log("Rides provider initialized/refreshed", refreshTrigger);
+    
     // Combine online and offline rides
     if (ridesData.rides.length > 0) {
+      console.log("Using online rides:", ridesData.rides.length);
       setAllRides(ridesData.rides);
       setOfflineMode(false);
     } else if (ridesData.error) {
@@ -79,7 +84,21 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
       setAllRides(offlineRides);
       setOfflineMode(true);
     }
-  }, [ridesData.rides, ridesData.loading, ridesData.error, offlineRides]);
+  }, [ridesData.rides, ridesData.loading, ridesData.error, offlineRides, refreshTrigger]);
+  
+  const refreshRides = async () => {
+    console.log("Manually refreshing rides");
+    try {
+      // Try to refresh data from the hook
+      await ridesData.refreshRides();
+      // Also update our local state trigger
+      setRefreshTrigger(prev => prev + 1);
+      toast.success("Rides refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing rides:", error);
+      toast.error("Failed to refresh rides");
+    }
+  };
   
   // Create a wrapper that tries the online mode first, then falls back to offline
   const contextValue: RidesContextType = {
@@ -131,16 +150,24 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
         await ridesData.removeRide(rideId);
         // Also remove from our local state
         setAllRides(prev => prev.filter(r => r.id !== rideId));
+        toast.success("Ride removed successfully");
       } catch (error) {
         console.error("Error removing ride:", error);
         // Remove from offline rides
         setOfflineRides(prev => prev.filter(r => r.id !== rideId));
         setAllRides(prev => prev.filter(r => r.id !== rideId));
+        toast.success("Ride removed successfully (offline mode)");
       }
     },
     searchRides: (pickupPoint, destination, date) => {
       console.log("Searching rides with params:", { pickupPoint, destination, date });
-      console.log("Available rides:", allRides);
+      console.log("Available rides for search:", allRides.length);
+      
+      // Make sure we have the latest rides
+      if (allRides.length === 0 && !ridesData.loading) {
+        console.log("No rides found, triggering refresh");
+        setRefreshTrigger(prev => prev + 1);
+      }
       
       // If both inputs are empty, return all rides to make them discoverable
       if (!pickupPoint && !destination) {
@@ -150,19 +177,31 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
       const normalizedPickup = pickupPoint?.toLowerCase().trim() || '';
       const normalizedDest = destination?.toLowerCase().trim() || '';
       
-      // Filter rides based on search criteria
+      // Filter rides based on search criteria with improved matching
       const results = allRides.filter(ride => {
-        const matchesPickup = !normalizedPickup || ride.pickup_point.toLowerCase().includes(normalizedPickup);
-        const matchesDest = !normalizedDest || ride.destination.toLowerCase().includes(normalizedDest);
+        // Use more lenient matching for better search results
+        const ridePickup = ride.pickup_point.toLowerCase();
+        const rideDest = ride.destination.toLowerCase();
+        
+        // Check if search terms are contained in the ride locations
+        const matchesPickup = !normalizedPickup || 
+          ridePickup.includes(normalizedPickup) || 
+          normalizedPickup.includes(ridePickup.split(',')[0]);
+          
+        const matchesDest = !normalizedDest || 
+          rideDest.includes(normalizedDest) || 
+          normalizedDest.includes(rideDest.split(',')[0]);
+          
         const matchesDate = !date || ride.pickup_date === date;
         
         return matchesPickup && matchesDest && matchesDate;
       });
       
-      console.log("Search results:", results);
+      console.log("Search results:", results.length);
       return results;
     },
     calculateFare: ridesData.calculateFare,
+    refreshRides
   };
   
   return (

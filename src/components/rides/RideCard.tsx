@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 
 interface RideCardProps {
   ride: Ride;
+  showActions?: boolean;
+  showDetailedInfo?: boolean;
 }
 
 type ProfileType = {
@@ -21,7 +23,7 @@ type ProfileType = {
   email: string;
 };
 
-const RideCard = ({ ride }: RideCardProps) => {
+const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideCardProps) => {
   const navigate = useNavigate();
   const { user } = useUser();
   
@@ -173,15 +175,22 @@ const RideCard = ({ ride }: RideCardProps) => {
       
       <CardFooter className="flex justify-between">
         <div className="text-lg font-bold">₹{fare}</div>
-        <div className="space-x-2">
-          <Button size="sm" variant="outline" onClick={handleCall}>
-            <Phone className="h-4 w-4" />
-          </Button>
-          <Button size="sm" variant="outline" onClick={handleMessage}>
-            <MessageSquare className="h-4 w-4" />
-          </Button>
-          <Button size="sm">Book Now</Button>
-        </div>
+        {showActions && (
+          <div className="space-x-2">
+            <Button size="sm" variant="outline" onClick={handleCall}>
+              <Phone className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleMessage}>
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+            <Button size="sm">Book Now</Button>
+          </div>
+        )}
+        {!showActions && (
+          <div className="space-x-2">
+            <Button size="sm">Book Now</Button>
+          </div>
+        )}
       </CardFooter>
     </Card>
   );
