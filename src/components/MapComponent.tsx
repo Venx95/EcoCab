@@ -29,11 +29,36 @@ const ChangeView = ({ center, zoom }: { center: [number, number]; zoom: number }
   return null;
 };
 
+// Export this utility so it can be used by other components
+export const calculateDistance = (
+  lat1: number, 
+  lon1: number, 
+  lat2: number, 
+  lon2: number
+): number => {
+  // Earth's radius in kilometers
+  const R = 6371;
+  
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c; // Distance in kilometers
+  
+  return distance;
+};
+
 const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponentProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [destinationCoords, setDestinationCoords] = useState<[number, number] | null>(null);
-  const defaultCenter: [number, number] = [40.749933, -73.98633]; // Default to New York
+  const [mapCenter, setMapCenter] = useState<[number, number]>([40.749933, -73.98633]); // Default to New York
+  const [mapZoom, setMapZoom] = useState<number>(13);
   
   useEffect(() => {
     // Function to geocode an address to coordinates using OSM Nominatim
@@ -41,6 +66,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
       if (!address) return null;
       
       try {
+        console.log("Geocoding address:", address);
         const response = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
         );
@@ -48,6 +74,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
         if (!response.ok) throw new Error('Network response was not ok');
         
         const data = await response.json();
+        console.log("Geocoding result:", data);
         
         if (data && data.length > 0) {
           return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
@@ -83,34 +110,21 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
   }, [pickupPoint, destination]);
   
   // Calculate the center and zoom level based on pickup and destination
-  const getMapView = () => {
+  useEffect(() => {
     if (pickupCoords && destinationCoords) {
       // Center between pickup and destination
       const centerLat = (pickupCoords[0] + destinationCoords[0]) / 2;
       const centerLng = (pickupCoords[1] + destinationCoords[1]) / 2;
-      return {
-        center: [centerLat, centerLng] as [number, number],
-        zoom: 10
-      };
+      setMapCenter([centerLat, centerLng]);
+      setMapZoom(10);
     } else if (pickupCoords) {
-      return {
-        center: pickupCoords,
-        zoom: 13
-      };
+      setMapCenter(pickupCoords);
+      setMapZoom(13);
     } else if (destinationCoords) {
-      return {
-        center: destinationCoords,
-        zoom: 13
-      };
-    } else {
-      return {
-        center: defaultCenter,
-        zoom: 13
-      };
+      setMapCenter(destinationCoords);
+      setMapZoom(13);
     }
-  };
-  
-  const { center, zoom } = getMapView();
+  }, [pickupCoords, destinationCoords]);
 
   if (isLoading) {
     return (
@@ -125,8 +139,9 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
     <div className="w-full h-full rounded-lg overflow-hidden border border-border shadow-sm" style={{ height }}>
       <MapContainer 
         style={{ width: '100%', height: '100%' }}
-        center={center as [number, number]}
-        zoom={zoom}
+        // Fix: Don't pass center and zoom directly to the component
+        // Instead, set the initial values and use ChangeView for updates
+        key={`${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`} // Key to force remount when coordinates change drastically
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -148,7 +163,7 @@ const MapComponent = ({ pickupPoint, destination, height = "100%" }: MapComponen
           </Marker>
         )}
         
-        <ChangeView center={center as [number, number]} zoom={zoom} />
+        <ChangeView center={mapCenter} zoom={mapZoom} />
       </MapContainer>
     </div>
   );

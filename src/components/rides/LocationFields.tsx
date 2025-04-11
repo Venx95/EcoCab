@@ -37,6 +37,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
     if (!query || query.length < 3) return [];
     
     try {
+      console.log("Searching for location:", query);
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
       );
@@ -44,6 +45,7 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
       if (!response.ok) throw new Error('Network response was not ok');
       
       const data = await response.json();
+      console.log("Search results:", data);
       return data as SearchResult[];
     } catch (error) {
       console.error("Error searching locations:", error);
@@ -88,6 +90,30 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Call updateFareCalculation when coordinates are available
+  const handleLocationSelect = (
+    field: any, 
+    locationName: string, 
+    lat: string, 
+    lon: string, 
+    inputRef: React.RefObject<HTMLInputElement>,
+    setQuery: (query: string) => void,
+    setShowResults: (show: boolean) => void
+  ) => {
+    field.onChange(locationName);
+    setQuery(locationName);
+    setShowResults(false);
+    
+    // Store the coordinates in dataset attributes for fare calculation
+    if (inputRef.current) {
+      inputRef.current.dataset.lat = lat;
+      inputRef.current.dataset.lon = lon;
+    }
+    
+    // Trigger fare calculation after a short delay to ensure both fields are updated
+    setTimeout(updateFareCalculation, 100);
+  };
   
   return (
     <>
@@ -127,17 +153,15 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                       <div
                         key={`pickup-${index}`}
                         className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                        onClick={() => {
-                          field.onChange(result.display_name);
-                          setPickupQuery(result.display_name);
-                          setShowPickupResults(false);
-                          // Store the coordinates in dataset attributes for fare calculation
-                          if (pickupInputRef.current) {
-                            pickupInputRef.current.dataset.lat = result.lat;
-                            pickupInputRef.current.dataset.lon = result.lon;
-                          }
-                          updateFareCalculation();
-                        }}
+                        onClick={() => handleLocationSelect(
+                          field, 
+                          result.display_name, 
+                          result.lat, 
+                          result.lon, 
+                          pickupInputRef,
+                          setPickupQuery,
+                          setShowPickupResults
+                        )}
                       >
                         {result.display_name}
                       </div>
@@ -187,17 +211,15 @@ const LocationFields = ({ control, isLoading, updateFareCalculation }: LocationF
                       <div
                         key={`dest-${index}`}
                         className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                        onClick={() => {
-                          field.onChange(result.display_name);
-                          setDestQuery(result.display_name);
-                          setShowDestResults(false);
-                          // Store the coordinates in dataset attributes for fare calculation
-                          if (destinationInputRef.current) {
-                            destinationInputRef.current.dataset.lat = result.lat;
-                            destinationInputRef.current.dataset.lon = result.lon;
-                          }
-                          updateFareCalculation();
-                        }}
+                        onClick={() => handleLocationSelect(
+                          field,
+                          result.display_name,
+                          result.lat,
+                          result.lon,
+                          destinationInputRef,
+                          setDestQuery,
+                          setShowDestResults
+                        )}
                       >
                         {result.display_name}
                       </div>

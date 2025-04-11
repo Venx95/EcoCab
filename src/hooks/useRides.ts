@@ -1,6 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { calculateDistance } from '@/components/MapComponent';
 
 export interface Ride {
   id: string;
@@ -19,30 +19,6 @@ export interface Ride {
   seats: number;
   created_at: Date;
 }
-
-// Helper function to calculate Haversine distance between two points
-export const calculateHaversineDistance = (
-  startLat: number, 
-  startLng: number, 
-  endLat: number, 
-  endLng: number
-): number => {
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const earthRadius = 6371; // Earth's radius in km
-  
-  const dLat = toRad(endLat - startLat);
-  const dLng = toRad(endLng - startLng);
-  
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(startLat)) * 
-    Math.cos(toRad(endLat)) * 
-    Math.sin(dLng / 2) * 
-    Math.sin(dLng / 2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadius * c;
-};
 
 // Helper function to convert an address to coordinates using OpenStreetMap Nominatim API
 export const geocodeAddress = async (address: string): Promise<{lat: number, lng: number} | null> => {
@@ -142,8 +118,8 @@ export const calculateFare = async (
       destination: destCoords
     });
     
-    // Calculate distance using Haversine formula
-    const distanceKm = calculateHaversineDistance(
+    // Calculate distance using the utility function
+    const distanceKm = calculateDistance(
       pickupCoords.lat, 
       pickupCoords.lng, 
       destCoords.lat, 
