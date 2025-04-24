@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +19,7 @@ import Conversation from "./pages/Conversation";
 import Settings from "./pages/Settings";
 import EditProfile from "./pages/EditProfile";
 import RequireAuth from "./components/auth/RequireAuth";
+import BookingDetails from "./pages/BookingDetails";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +61,11 @@ const App = () => (
                 <Route path="/book-ride" element={
                   <RequireAuth>
                     <BookRide />
+                  </RequireAuth>
+                } />
+                <Route path="/booking-details" element={
+                  <RequireAuth>
+                    <BookingDetails />
                   </RequireAuth>
                 } />
                 <Route path="/messages" element={

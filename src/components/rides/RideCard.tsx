@@ -1,4 +1,3 @@
-
 import { Ride } from '@/hooks/useRides';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,7 +46,6 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
         return;
       }
       
-      // Get driver profile to get their phone number
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('phone_number')
@@ -78,7 +76,6 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
     }
     
     try {
-      // Check if conversation exists
       const { data: existingConversations, error: convError } = await supabase
         .from('conversations')
         .select('id')
@@ -95,7 +92,6 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
         conversationId = existingConversations[0].id;
         console.log("Found existing conversation:", conversationId);
       } else {
-        // Create new conversation
         const { data: newConversation, error } = await supabase
           .from('conversations')
           .insert({
@@ -118,7 +114,6 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
         console.log("Created new conversation:", conversationId);
       }
       
-      // Navigate to the conversation
       navigate(`/messages/${conversationId}`);
       
     } catch (error) {
@@ -133,8 +128,7 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
       return;
     }
     
-    // For now, just show a toast
-    toast.success("Booking request sent to the driver!");
+    navigate('/booking-details', { state: { ride } });
   };
 
   return (
@@ -199,7 +193,6 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
       <CardFooter className="flex justify-between">
         <div className="text-lg font-bold">₹{fare}</div>
         
-        {/* Show different actions based on whether it's the user's own ride or not */}
         {showActions && user?.id !== driver_id && (
           <div className="space-x-2">
             <Button size="sm" variant="outline" onClick={handleCall}>
