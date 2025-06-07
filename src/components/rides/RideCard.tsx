@@ -1,3 +1,4 @@
+
 import { Ride } from '@/hooks/useRides';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -211,9 +212,18 @@ const RideCard = ({ ride, showActions = false, showDetailedInfo = false }: RideC
           </div>
         )}
         
-        {!showActions && (
+        {!showActions && user?.id !== driver_id && (
           <div className="space-x-2">
+            <Button size="sm" variant="outline" onClick={handleMessage}>
+              <MessageSquare className="h-4 w-4" />
+            </Button>
             <Button size="sm" onClick={handleBooking}>Book Now</Button>
+          </div>
+        )}
+        
+        {!showActions && user?.id === driver_id && (
+          <div className="space-x-2">
+            <Button size="sm" variant="outline" disabled>Your Ride</Button>
           </div>
         )}
       </CardFooter>

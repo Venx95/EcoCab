@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, CircleDashed } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
 import { toast } from 'sonner';
 
 interface Message {
@@ -35,7 +35,9 @@ const ChatComponent = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   
   // Fetch messages on component mount
   useEffect(() => {
@@ -81,7 +83,7 @@ const ChatComponent = ({
     
     // Set up real-time subscription for new messages
     const messagesSubscription = supabase
-      .channel('messages-channel')
+      .channel(`messages-${conversationId}`)
       .on('postgres_changes', 
         { 
           event: 'INSERT', 
@@ -111,20 +113,30 @@ const ChatComponent = ({
   
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+    
+    // Small delay to ensure content is rendered
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || !user || !conversationId) return;
+    if (!newMessage.trim() || !user || !conversationId || sending) return;
     
     try {
+      setSending(true);
+      const messageText = newMessage.trim();
+      setNewMessage(''); // Clear input immediately for better UX
+      
       const newMsg = {
         conversation_id: conversationId,
         sender_id: user.id,
         receiver_id: receiverId,
-        text: newMessage.trim(),
+        text: messageText,
         read: false,
       };
       
@@ -138,24 +150,57 @@ const ChatComponent = ({
       await supabase
         .from('conversations')
         .update({
-          last_message: newMessage.trim(),
+          last_message: messageText,
           last_message_time: new Date().toISOString()
         })
         .eq('id', conversationId);
       
-      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
+      setNewMessage(newMessage); // Restore message if sending failed
+    } finally {
+      setSending(false);
     }
   };
   
   const formatMessageTime = (timestamp: string) => {
     try {
-      return format(new Date(timestamp), 'h:mm a');
+      const date = new Date(timestamp);
+      if (isToday(date)) {
+        return format(date, 'h:mm a');
+      } else if (isYesterday(date)) {
+        return `Yesterday ${format(date, 'h:mm a')}`;
+      } else {
+        return format(date, 'MMM d, h:mm a');
+      }
     } catch (error) {
       return '';
     }
+  };
+  
+  const groupMessagesByDate = (messages: Message[]) => {
+    const groups: { [key: string]: Message[] } = {};
+    
+    messages.forEach(message => {
+      const date = new Date(message.timestamp);
+      let dateKey;
+      
+      if (isToday(date)) {
+        dateKey = 'Today';
+      } else if (isYesterday(date)) {
+        dateKey = 'Yesterday';
+      } else {
+        dateKey = format(date, 'MMMM d, yyyy');
+      }
+      
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(message);
+    });
+    
+    return groups;
   };
   
   if (loading) {
@@ -166,52 +211,103 @@ const ChatComponent = ({
     );
   }
   
+  const messageGroups = groupMessagesByDate(messages);
+  
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
-      <div className="flex-grow overflow-y-auto px-2 py-4 space-y-4">
+      <div 
+        ref={messagesContainerRef}
+        className="flex-grow overflow-y-auto px-2 py-4 space-y-4"
+      >
         {messages.length === 0 ? (
           <div className="flex justify-center items-center h-full">
-            <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
+            <div className="text-center">
+              <Avatar className="h-16 w-16 mx-auto mb-4">
+                <AvatarImage src={receiverPhoto} />
+                <AvatarFallback className="text-lg">{receiverName[0]}</AvatarFallback>
+              </Avatar>
+              <p className="text-muted-foreground">
+                Start your conversation with {receiverName}
+              </p>
+            </div>
           </div>
         ) : (
-          messages.map((message) => {
-            const isCurrentUser = message.sender_id === user?.id;
-            
-            return (
-              <div key={message.id} className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`flex items-end gap-2 max-w-[75%] ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {!isCurrentUser && (
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={receiverPhoto} />
-                      <AvatarFallback>{receiverName[0]}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  
-                  <div className={`rounded-lg px-4 py-2 ${
-                    isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                  }`}>
-                    <p className="text-sm">{message.text}</p>
-                    <p className={`text-xs ${isCurrentUser ? 'text-primary-foreground/70' : 'text-muted-foreground'} text-right mt-1`}>
-                      {formatMessageTime(message.timestamp)}
-                    </p>
-                  </div>
-                </div>
+          Object.entries(messageGroups).map(([dateKey, dateMessages]) => (
+            <div key={dateKey}>
+              <div className="flex justify-center mb-4">
+                <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                  {dateKey}
+                </span>
               </div>
-            );
-          })
+              
+              {dateMessages.map((message, index) => {
+                const isCurrentUser = message.sender_id === user?.id;
+                const isConsecutive = index > 0 && 
+                  dateMessages[index - 1].sender_id === message.sender_id;
+                
+                return (
+                  <div 
+                    key={message.id} 
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} ${
+                      isConsecutive ? 'mt-1' : 'mt-4'
+                    }`}
+                  >
+                    <div className={`flex items-end gap-2 max-w-[75%] ${
+                      isCurrentUser ? 'flex-row-reverse' : 'flex-row'
+                    }`}>
+                      {!isCurrentUser && !isConsecutive && (
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={receiverPhoto} />
+                          <AvatarFallback>{receiverName[0]}</AvatarFallback>
+                        </Avatar>
+                      )}
+                      
+                      {!isCurrentUser && isConsecutive && (
+                        <div className="w-8" /> // Spacer for consecutive messages
+                      )}
+                      
+                      <div className={`rounded-lg px-4 py-2 ${
+                        isCurrentUser 
+                          ? 'bg-primary text-primary-foreground' 
+                          : 'bg-muted'
+                      }`}>
+                        <p className="text-sm break-words">{message.text}</p>
+                        <p className={`text-xs ${
+                          isCurrentUser 
+                            ? 'text-primary-foreground/70' 
+                            : 'text-muted-foreground'
+                        } text-right mt-1`}>
+                          {formatMessageTime(message.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))
         )}
         <div ref={messagesEndRef} />
       </div>
       
-      <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-4 border-t">
+      <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-4 border-t bg-background">
         <Input
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={`Message ${receiverName}...`}
           className="flex-grow"
+          disabled={sending}
         />
-        <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-          <Send className="h-4 w-4" />
+        <Button 
+          type="submit" 
+          size="icon" 
+          disabled={!newMessage.trim() || sending}
+        >
+          {sending ? (
+            <CircleDashed className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
         </Button>
       </form>
     </div>
