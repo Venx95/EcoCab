@@ -32,11 +32,25 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const fetchConversations = async () => {
       try {
         setLoading(true);
+        
+        console.log("Fetching conversations for user:", user.id);
+        
+        // Check if we have a valid session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.error("Session error:", sessionError);
+          toast.error("Authentication error. Please login again.");
+          navigate('/login');
+          return;
+        }
         
         // Fetch conversations where current user is involved
         const { data: conversationsData, error: conversationsError } = await supabase
@@ -45,7 +59,12 @@ const Messages = () => {
           .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
           .order('last_message_time', { ascending: false });
 
-        if (conversationsError) throw conversationsError;
+        if (conversationsError) {
+          console.error("Error fetching conversations:", conversationsError);
+          throw conversationsError;
+        }
+
+        console.log("Fetched conversations:", conversationsData?.length || 0);
 
         if (!conversationsData || conversationsData.length === 0) {
           setConversations([]);
@@ -58,13 +77,20 @@ const Messages = () => {
           conv.user1_id === user.id ? conv.user2_id : conv.user1_id
         );
 
+        console.log("Fetching profiles for users:", otherUserIds);
+
         // Fetch profiles for other users
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('id, name, photo_url')
           .in('id', otherUserIds);
 
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+          // Continue without profiles rather than failing completely
+        }
+
+        console.log("Fetched profiles:", profilesData?.length || 0);
 
         // Get unread message counts for each conversation
         const conversationsWithProfiles = await Promise.all(
@@ -73,12 +99,16 @@ const Messages = () => {
             const otherUser = profilesData?.find(profile => profile.id === otherUserId);
 
             // Count unread messages
-            const { count: unreadCount } = await supabase
+            const { count: unreadCount, error: countError } = await supabase
               .from('messages')
               .select('*', { count: 'exact', head: true })
               .eq('conversation_id', conv.id)
               .eq('receiver_id', user.id)
               .eq('read', false);
+              
+            if (countError) {
+              console.error("Error counting unread messages:", countError);
+            }
 
             return {
               ...conv,
@@ -88,6 +118,7 @@ const Messages = () => {
           })
         );
 
+        console.log("Final conversations with profiles:", conversationsWithProfiles.length);
         setConversations(conversationsWithProfiles);
       } catch (error) {
         console.error('Error fetching conversations:', error);
@@ -108,6 +139,7 @@ const Messages = () => {
         table: 'conversations',
         filter: `user1_id=eq.${user.id}`
       }, () => {
+        console.log("Conversation change detected for user1");
         fetchConversations();
       })
       .on('postgres_changes', {
@@ -116,6 +148,7 @@ const Messages = () => {
         table: 'conversations',
         filter: `user2_id=eq.${user.id}`
       }, () => {
+        console.log("Conversation change detected for user2");
         fetchConversations();
       })
       .on('postgres_changes', {
@@ -123,6 +156,7 @@ const Messages = () => {
         schema: 'public',
         table: 'messages'
       }, () => {
+        console.log("New message detected");
         fetchConversations();
       })
       .subscribe();
@@ -130,7 +164,7 @@ const Messages = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, navigate]);
 
   const handleConversationClick = (conversationId: string) => {
     navigate(`/messages/${conversationId}`);

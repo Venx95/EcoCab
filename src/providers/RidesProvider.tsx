@@ -37,7 +37,8 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
   useEffect(() => {
     console.log("Rides provider initialized/refreshed", refreshTrigger);
     console.log("Current user:", user?.id);
-  }, [refreshTrigger, user]);
+    console.log("Total rides available:", ridesData.rides.length);
+  }, [refreshTrigger, user, ridesData.rides.length]);
   
   const refreshRides = async () => {
     console.log("Manually refreshing rides");
@@ -94,7 +95,9 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
       console.log("Searching rides with params:", { pickupPoint, destination, date });
       console.log("Available rides for search:", ridesData.rides.length);
       
+      // Filter out current user's own rides for search results
       const availableRides = ridesData.rides.filter(ride => ride.driver_id !== user?.id);
+      console.log("Available rides (excluding user's own):", availableRides.length);
       
       if (!pickupPoint && !destination) {
         return availableRides;

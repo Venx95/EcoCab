@@ -14,9 +14,7 @@ const MyRides = () => {
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
-  // Improved fetch function with better error handling
   const fetchMyRides = useCallback(async () => {
     if (!user) {
       setLoading(false);
@@ -29,54 +27,58 @@ const MyRides = () => {
       
       console.log("Fetching rides for user:", user.id);
       
-      const { data, error } = await supabase
+      // Fetch rides for current user
+      const { data: ridesData, error: ridesError } = await supabase
         .from('rides')
-        .select(`
-          *,
-          profiles:driver_id(name, photo_url)
-        `)
+        .select('*')
         .eq('driver_id', user.id)
         .order('created_at', { ascending: false });
         
-      if (error) {
-        console.error("Error fetching rides:", error);
-        throw error;
+      if (ridesError) {
+        console.error("Error fetching user rides:", ridesError);
+        throw ridesError;
       }
       
-      console.log("Fetched rides data:", data);
+      console.log("Fetched user rides data:", ridesData);
       
-      if (!data) {
-        throw new Error("No data returned from the database");
+      if (!ridesData) {
+        setRides([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Fetch user profile for driver info
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('name, photo_url')
+        .eq('id', user.id)
+        .single();
+        
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        // Continue without profile data
       }
       
       // Format the data to match the Ride interface
-      const formattedRides = data.map(ride => {
-        const profileData = ride.profiles as any;
-        const driverName = profileData && typeof profileData === 'object' ? 
-          profileData.name || 'Unknown Driver' : 'Unknown Driver';
-        const driverPhoto = profileData && typeof profileData === 'object' ?
-          profileData.photo_url : undefined;
-        
-        return {
-          id: ride.id,
-          driver_id: ride.driver_id,
-          driverName,
-          driverPhoto,
-          pickup_point: ride.pickup_point,
-          destination: ride.destination,
-          pickup_date: ride.pickup_date,
-          pickup_time_start: ride.pickup_time_start,
-          pickup_time_end: ride.pickup_time_end,
-          car_name: ride.car_name,
-          fare: ride.fare,
-          is_courier_available: ride.is_courier_available || false,
-          luggage_capacity: ride.luggage_capacity,
-          seats: ride.seats,
-          created_at: new Date(ride.created_at || Date.now())
-        };
-      });
+      const formattedRides = ridesData.map(ride => ({
+        id: ride.id,
+        driver_id: ride.driver_id,
+        driverName: profileData?.name || user.name || 'Unknown Driver',
+        driverPhoto: profileData?.photo_url || user.photoURL,
+        pickup_point: ride.pickup_point,
+        destination: ride.destination,
+        pickup_date: ride.pickup_date,
+        pickup_time_start: ride.pickup_time_start,
+        pickup_time_end: ride.pickup_time_end,
+        car_name: ride.car_name,
+        fare: ride.fare,
+        is_courier_available: ride.is_courier_available || false,
+        luggage_capacity: ride.luggage_capacity,
+        seats: ride.seats,
+        created_at: new Date(ride.created_at || Date.now())
+      }));
       
-      console.log("Formatted rides:", formattedRides);
+      console.log("Formatted user rides:", formattedRides);
       setRides(formattedRides);
       setLoading(false);
     } catch (err) {
@@ -86,21 +88,20 @@ const MyRides = () => {
     }
   }, [user]);
   
-  // Refresh rides when user changes or retry count changes
   useEffect(() => {
     if (user) {
       fetchMyRides();
       
       // Set up realtime subscription for ride updates
       const channel = supabase
-        .channel('rides-changes')
+        .channel('user-rides-changes')
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
           table: 'rides',
           filter: `driver_id=eq.${user.id}` 
         }, () => {
-          console.log("Ride change detected for user, refreshing rides");
+          console.log("User ride change detected, refreshing rides");
           fetchMyRides();
         })
         .subscribe();
@@ -111,12 +112,11 @@ const MyRides = () => {
     } else {
       setLoading(false);
     }
-  }, [user, retryCount, fetchMyRides]);
+  }, [user, fetchMyRides]);
 
-  // Manual retry function
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-    toast.info("Retrying to load rides...");
+    fetchMyRides();
+    toast.info("Refreshing rides...");
   };
 
   if (!user) {

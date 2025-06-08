@@ -16,7 +16,7 @@ interface ConversationUser {
 }
 
 const Conversation = () => {
-  const { id: conversationId } = useParams();
+  const { id: conversationId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
@@ -33,6 +33,9 @@ const Conversation = () => {
       try {
         setLoading(true);
         setError(null);
+        
+        console.log("Fetching conversation details for:", conversationId);
+        console.log("Current user:", user.id);
         
         // Check if we have a valid session first
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -59,10 +62,14 @@ const Conversation = () => {
           return;
         }
         
+        console.log("Conversation data:", conversationData);
+        
         // Determine which user is the receiver
         const receiverId = conversationData.user1_id === user.id 
           ? conversationData.user2_id 
           : conversationData.user1_id;
+          
+        console.log("Receiver ID:", receiverId);
         
         // Then, fetch the receiver's profile
         const { data: receiverData, error: receiverError } = await supabase
@@ -73,10 +80,17 @@ const Conversation = () => {
           
         if (receiverError) {
           console.error("Receiver error:", receiverError);
-          throw receiverError;
+          // If profile doesn't exist, create a basic one
+          setReceiver({
+            id: receiverId,
+            name: 'Unknown User',
+            photo_url: undefined
+          });
+        } else {
+          setReceiver(receiverData);
         }
         
-        setReceiver(receiverData);
+        console.log("Receiver data:", receiverData);
       } catch (error) {
         console.error('Error fetching conversation details:', error);
         setError('Failed to load conversation');

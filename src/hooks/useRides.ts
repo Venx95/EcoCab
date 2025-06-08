@@ -163,34 +163,47 @@ export const useRides = () => {
           return;
         }
         
-        const { data, error } = await supabase
+        // First, fetch all rides
+        const { data: ridesData, error: ridesError } = await supabase
           .from('rides')
-          .select(`
-            *,
-            profiles:driver_id(name, photo_url)
-          `)
+          .select('*')
           .order('created_at', { ascending: false });
           
-        if (error) {
-          console.error("Error fetching rides:", error);
-          throw error;
+        if (ridesError) {
+          console.error("Error fetching rides:", ridesError);
+          throw ridesError;
         }
         
-        console.log("Fetched rides:", data ? data.length : 0);
+        console.log("Fetched rides:", ridesData ? ridesData.length : 0);
         
-        if (!data || data.length === 0) {
+        if (!ridesData || ridesData.length === 0) {
           console.log("No rides found in database");
           setRides([]);
           setLoading(false);
           return;
         }
         
-        const formattedRides = data.map(ride => {
-          const profileData = ride.profiles as any;
-          const driverName = profileData && typeof profileData === 'object' ? 
-            profileData.name || 'Unknown Driver' : 'Unknown Driver';
-          const driverPhoto = profileData && typeof profileData === 'object' ?
-            profileData.photo_url : undefined;
+        // Get unique driver IDs
+        const driverIds = [...new Set(ridesData.map(ride => ride.driver_id))];
+        
+        // Fetch driver profiles separately
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, name, photo_url')
+          .in('id', driverIds);
+          
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+          // Continue without profiles rather than failing completely
+        }
+        
+        console.log("Fetched profiles:", profilesData ? profilesData.length : 0);
+        
+        // Combine rides with profile data
+        const formattedRides = ridesData.map(ride => {
+          const profile = profilesData?.find(p => p.id === ride.driver_id);
+          const driverName = profile?.name || 'Unknown Driver';
+          const driverPhoto = profile?.photo_url;
           
           return {
             id: ride.id,
