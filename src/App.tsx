@@ -21,11 +21,22 @@ import AuthProvider from "./providers/AuthProvider";
 import RidesProvider from "./providers/RidesProvider";
 import RequireAuth from "./components/auth/RequireAuth";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 3,
+      retryDelay: 1000,
+    },
+    mutations: {
+      retry: 2,
+      retryDelay: 1000,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <TooltipProvider>
         <Toaster position="top-center" />
         <BrowserRouter>

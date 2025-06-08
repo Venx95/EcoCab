@@ -16,7 +16,7 @@ interface ConversationUser {
 }
 
 const Conversation = () => {
-  const { conversationId } = useParams();
+  const { id: conversationId } = useParams();
   const navigate = useNavigate();
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
@@ -34,6 +34,14 @@ const Conversation = () => {
         setLoading(true);
         setError(null);
         
+        // Check if we have a valid session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.error("Session error:", sessionError);
+          navigate('/login');
+          return;
+        }
+        
         // First, fetch the conversation to get the other user's ID
         const { data: conversationData, error: conversationError } = await supabase
           .from('conversations')
@@ -41,7 +49,10 @@ const Conversation = () => {
           .eq('id', conversationId)
           .single();
           
-        if (conversationError) throw conversationError;
+        if (conversationError) {
+          console.error("Conversation error:", conversationError);
+          throw conversationError;
+        }
         
         if (!conversationData) {
           setError('Conversation not found');
@@ -60,7 +71,10 @@ const Conversation = () => {
           .eq('id', receiverId)
           .single();
           
-        if (receiverError) throw receiverError;
+        if (receiverError) {
+          console.error("Receiver error:", receiverError);
+          throw receiverError;
+        }
         
         setReceiver(receiverData);
       } catch (error) {

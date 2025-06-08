@@ -30,7 +30,12 @@ export const geocodeAddress = async (address: string): Promise<{lat: number, lng
   try {
     console.log("Geocoding address:", address);
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`,
+      {
+        headers: {
+          'User-Agent': 'EcoCab-App/1.0'
+        }
+      }
     );
     
     if (!response.ok) {
@@ -48,26 +53,6 @@ export const geocodeAddress = async (address: string): Promise<{lat: number, lng
       };
     }
     
-    // Try again with a simplified version of the address
-    const simplifiedAddress = address.split(',')[0].trim();
-    if (simplifiedAddress !== address) {
-      console.log("Trying with simplified address:", simplifiedAddress);
-      const simpleResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplifiedAddress)}&limit=1`
-      );
-      
-      if (simpleResponse.ok) {
-        const simpleData = await simpleResponse.json();
-        if (simpleData && simpleData.length > 0) {
-          return { 
-            lat: parseFloat(simpleData[0].lat), 
-            lng: parseFloat(simpleData[0].lon) 
-          };
-        }
-      }
-    }
-    
-    // Fallback to simulated coordinates if geocoding fails
     console.log("Geocoding failed for address:", address);
     console.log("Using fallback coordinates");
     const hashValue = address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -93,7 +78,7 @@ export interface FareCalculationResult {
   surgeFactor: number;
 }
 
-// New simplified pricing: Rs. 3 per kilometer
+// Simplified pricing: Rs. 3 per kilometer with minimum fare of Rs. 15
 export const calculateFare = async (
   pickupPoint: string,
   destination: string
@@ -115,7 +100,7 @@ export const calculateFare = async (
       destination: destCoords
     });
     
-    // Calculate distance with higher precision
+    // Calculate distance with higher precision using Haversine formula
     const distanceKm = calculateDistance(
       pickupCoords.lat, 
       pickupCoords.lng, 
@@ -127,18 +112,18 @@ export const calculateFare = async (
     
     // New pricing formula: Rs. 3 per kilometer
     const perKmRate = 3;
-    const fare = Math.round(distanceKm * perKmRate);
+    const calculatedFare = Math.round(distanceKm * perKmRate);
     
     // Ensure minimum fare of Rs. 15
-    const finalFare = Math.max(fare, 15);
+    const finalFare = Math.max(calculatedFare, 15);
     
     const result = {
       fare: finalFare,
       distance: Math.round(distanceKm * 10) / 10, // Round to 1 decimal place
-      baseFare: 15, // Minimum fare for display purposes
-      distanceCost: Math.round((distanceKm * perKmRate) - 15), // Additional cost beyond minimum
-      timeCost: 0, // Not used in new formula
-      surgeFactor: 1.0 // Not used in new formula
+      baseFare: 15, // Minimum fare
+      distanceCost: Math.max(0, calculatedFare - 15), // Additional cost beyond minimum
+      timeCost: 0, // Not used in current formula
+      surgeFactor: 1.0 // Not used in current formula
     };
     
     console.log("Fare calculation result:", result);
@@ -167,13 +152,27 @@ export const useRides = () => {
     setRefreshCounter(prev => prev + 1);
   }, []);
 
-  // Load rides from Supabase
+  // Load rides from Supabase with better error handling
   useEffect(() => {
     const fetchRides = async () => {
       try {
         setLoading(true);
         setError(null);
         console.log("Fetching all rides from Supabase");
+        
+        // Check if we have a valid session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error("Session error:", sessionError);
+          throw sessionError;
+        }
+        
+        if (!session) {
+          console.log("No active session found");
+          setRides([]);
+          setLoading(false);
+          return;
+        }
         
         const { data, error } = await supabase
           .from('rides')
@@ -256,21 +255,32 @@ export const useRides = () => {
     };
   }, [refreshCounter]);
 
-  // Add a new ride
+  // Add a new ride with improved error handling and retry logic
   const addRide = async (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => {
     try {
       console.log("Adding new ride:", ride);
+      
+      // Check session before attempting to add ride
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error("Authentication required to add ride");
+      }
+      
+      // Validate required fields
+      if (!ride.pickup_point || !ride.destination || !ride.pickup_date) {
+        throw new Error("Missing required fields: pickup point, destination, or date");
+      }
       
       const { data: newRide, error } = await supabase
         .from('rides')
         .insert({
           driver_id: ride.driver_id,
-          pickup_point: ride.pickup_point,
-          destination: ride.destination,
+          pickup_point: ride.pickup_point.trim(),
+          destination: ride.destination.trim(),
           pickup_date: ride.pickup_date,
           pickup_time_start: ride.pickup_time_start,
           pickup_time_end: ride.pickup_time_end,
-          car_name: ride.car_name,
+          car_name: ride.car_name.trim(),
           fare: ride.fare,
           is_courier_available: ride.is_courier_available,
           luggage_capacity: ride.luggage_capacity,
@@ -281,7 +291,7 @@ export const useRides = () => {
         
       if (error) {
         console.error("Error adding ride:", error);
-        throw error;
+        throw new Error(`Failed to register ride: ${error.message}`);
       }
       
       console.log("New ride added successfully:", newRide);
@@ -289,8 +299,9 @@ export const useRides = () => {
       return newRide;
     } catch (err) {
       console.error("Error adding ride:", err);
-      setError(err as Error);
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(new Error(errorMessage));
+      throw new Error(errorMessage);
     }
   };
 

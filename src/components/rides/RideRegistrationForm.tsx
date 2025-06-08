@@ -12,7 +12,6 @@ import { Form } from '@/components/ui/form';
 import { useUser } from '@/hooks/useUser';
 import { useRidesContext } from '@/providers/RidesProvider';
 import { FareCalculationResult } from '@/hooks/useRides';
-import { supabase } from '@/integrations/supabase/client';
 
 import LocationFields from './LocationFields';
 import TimeFields from './TimeFields';
@@ -103,32 +102,13 @@ const RideRegistrationForm = () => {
   }, [pickupPoint, destination, updateFareCalculation]);
 
   const onSubmit = async (values: RideFormValues) => {
+    if (!user) {
+      toast.error("You must be logged in to register a ride");
+      return;
+    }
+
     try {
       setIsLoading(true);
-      
-      if (!user) {
-        toast.error("You must be logged in to register a ride");
-        return;
-      }
-      
-      // Update the user's phone number if provided
-      if (values.phoneNumber) {
-        try {
-          const { error: profileUpdateError } = await supabase
-            .from('profiles')
-            .update({
-              phone_number: values.phoneNumber
-            })
-            .eq('id', user.id);
-            
-          if (profileUpdateError) {
-            console.error("Error updating profile:", profileUpdateError);
-          }
-        } catch (profileErr) {
-          console.error("Error updating profile:", profileErr);
-          // Continue with ride registration even if profile update fails
-        }
-      }
       
       let fare: number;
       let fareData: FareCalculationResult;
@@ -151,7 +131,7 @@ const RideRegistrationForm = () => {
       
       console.log("Submitting ride with fare:", fare, "and details:", fareData);
 
-      // Use the addRide function from context which handles database operations
+      // Prepare ride data
       const rideData = {
         driver_id: user.id,
         pickup_point: values.pickupPoint,
