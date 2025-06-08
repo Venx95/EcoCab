@@ -110,15 +110,6 @@ const RideRegistrationForm = () => {
         toast.error("You must be logged in to register a ride");
         return;
       }
-
-      // Check if user is authenticated with Supabase
-      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
-      if (authError || !supabaseUser) {
-        console.error("Authentication error:", authError);
-        toast.error("Authentication required. Please log in again.");
-        navigate('/login');
-        return;
-      }
       
       // Update the user's phone number if provided
       if (values.phoneNumber) {
