@@ -185,7 +185,6 @@ export const useRides = () => {
   const [error, setError] = useState<Error | null>(null);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // Function to refresh rides
   const refreshRides = useCallback(async () => {
     setRefreshCounter(prev => prev + 1);
   }, []);
@@ -198,7 +197,6 @@ export const useRides = () => {
         setError(null);
         console.log("Fetching all rides from Supabase");
         
-        // Fetch rides from Supabase
         const { data, error } = await supabase
           .from('rides')
           .select(`
@@ -221,9 +219,7 @@ export const useRides = () => {
           return;
         }
         
-        // Format the data to match the Ride interface
         const formattedRides = data.map(ride => {
-          // Handle the case where profiles is a SelectQueryError
           const profileData = ride.profiles as any;
           const driverName = profileData && typeof profileData === 'object' ? 
             profileData.name || 'Unknown Driver' : 'Unknown Driver';
@@ -255,13 +251,13 @@ export const useRides = () => {
       } catch (err) {
         console.error("Error fetching rides:", err);
         setError(err as Error);
+        setRides([]); // Clear rides on error
         setLoading(false);
       }
     };
     
     fetchRides();
     
-    // Set up real-time subscription for ride changes
     const channel = supabase
       .channel('rides-changes')
       .on('postgres_changes', { 
@@ -270,8 +266,6 @@ export const useRides = () => {
         table: 'rides' 
       }, async (payload) => {
         console.log("Ride change detected:", payload);
-        
-        // Refresh all rides to ensure we have the latest data
         fetchRides();
       })
       .subscribe((status) => {
@@ -282,9 +276,9 @@ export const useRides = () => {
       console.log("Cleaning up realtime subscription");
       supabase.removeChannel(channel);
     };
-  }, [refreshCounter]); // Depend on refreshCounter to allow manual refreshing
+  }, [refreshCounter]);
 
-  // Add a new ride
+  // Add a new ride - directly to database only
   const addRide = async (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => {
     try {
       console.log("Adding new ride:", ride);
@@ -313,10 +307,7 @@ export const useRides = () => {
       }
       
       console.log("New ride added successfully:", newRide);
-      
-      // Refresh rides after adding
       refreshRides();
-      
       return newRide;
     } catch (err) {
       console.error("Error adding ride:", err);
@@ -356,7 +347,6 @@ export const useRides = () => {
     date: string
   ): Ride[] => {
     if (!pickupPoint && !destination) {
-      // Return all rides if no search criteria provided
       return rides;
     }
     
@@ -366,16 +356,12 @@ export const useRides = () => {
     const normalizedPickup = pickupPoint.toLowerCase().trim();
     const normalizedDest = destination.toLowerCase().trim();
     
-    // Include all rides that match the criteria with improved matching logic
     const results = rides.filter(ride => {
-      // Normalize ride location data
       const ridePickup = ride.pickup_point.toLowerCase();
       const rideDest = ride.destination.toLowerCase();
       
-      // Use more lenient matching for better search results
       let matchesPickup = true;
       if (normalizedPickup) {
-        // Check if search term is contained in the pickup location or vice versa
         const pickupMainPart = ridePickup.split(',')[0].trim();
         matchesPickup = ridePickup.includes(normalizedPickup) || 
                        normalizedPickup.includes(pickupMainPart) ||
@@ -384,7 +370,6 @@ export const useRides = () => {
       
       let matchesDest = true;
       if (normalizedDest) {
-        // Check if search term is contained in the destination or vice versa
         const destMainPart = rideDest.split(',')[0].trim();
         matchesDest = rideDest.includes(normalizedDest) || 
                      normalizedDest.includes(destMainPart) ||
