@@ -49,6 +49,11 @@ const BookingDetails = () => {
       return;
     }
 
+    if (bookingType === 'courier' && weight <= 0) {
+      toast.error('Please enter a valid package weight');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -71,11 +76,12 @@ const BookingDetails = () => {
         throw bookingError;
       }
 
-      // Update available seats in the ride
+      // Update available seats in the ride if it's a ride booking
       if (bookingType === 'ride') {
+        const newSeats = ride.seats - seats;
         const { error: updateError } = await supabase
           .from('rides')
-          .update({ seats: ride.seats - seats })
+          .update({ seats: newSeats })
           .eq('id', ride.id);
 
         if (updateError) {
@@ -102,14 +108,22 @@ const BookingDetails = () => {
           <p className="text-sm text-muted-foreground">
             {ride.pickup_point} → {ride.destination}
           </p>
+          <div className="text-sm text-muted-foreground">
+            <p>Date: {ride.pickup_date}</p>
+            <p>Time: {ride.pickup_time_start} - {ride.pickup_time_end}</p>
+            <p>Available Seats: {ride.seats}</p>
+            {ride.is_courier_available && <p>Luggage Capacity: {ride.luggage_capacity}kg</p>}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <BookingTypeSelector 
             selected={bookingType} 
             onSelect={setBookingType}
+            isRideAvailable={ride.seats > 0}
+            isCourierAvailable={ride.is_courier_available || false}
           />
 
-          {bookingType === 'courier' && (
+          {bookingType === 'courier' && ride.is_courier_available && (
             <CourierForm 
               maxWeight={ride.luggage_capacity || 0} 
               weight={weight}
@@ -117,7 +131,7 @@ const BookingDetails = () => {
             />
           )}
 
-          {bookingType === 'ride' && (
+          {bookingType === 'ride' && ride.seats > 0 && (
             <RideForm 
               maxSeats={ride.seats} 
               seats={seats}
