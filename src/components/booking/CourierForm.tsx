@@ -1,24 +1,15 @@
 
-import { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Package, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface CourierFormProps {
   maxWeight: number;
+  weight: number;
+  setWeight: (weight: number) => void;
 }
 
-const CourierForm = ({ maxWeight }: CourierFormProps) => {
-  const [weight, setWeight] = useState<number>(0);
-  const [image, setImage] = useState<File | null>(null);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImage(e.target.files[0]);
-    }
-  };
-
+const CourierForm = ({ maxWeight, weight, setWeight }: CourierFormProps) => {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -45,20 +36,14 @@ const CourierForm = ({ maxWeight }: CourierFormProps) => {
       <div className="space-y-2">
         <Label htmlFor="image" className="flex items-center gap-2">
           <Upload className="h-4 w-4" />
-          Upload Package Photo
+          Upload Package Photo (Optional)
         </Label>
         <Input
           id="image"
           type="file"
           accept="image/*"
-          onChange={handleImageUpload}
           className="cursor-pointer"
         />
-        {image && (
-          <p className="text-sm text-muted-foreground">
-            Selected: {image.name}
-          </p>
-        )}
       </div>
     </div>
   );

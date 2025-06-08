@@ -72,7 +72,7 @@ const App = () => (
                     } 
                   />
                   <Route 
-                    path="/conversation/:id" 
+                    path="/messages/:id" 
                     element={
                       <RequireAuth>
                         <Conversation />
@@ -104,7 +104,7 @@ const App = () => (
                     } 
                   />
                   <Route 
-                    path="/booking-details/:id" 
+                    path="/booking-details" 
                     element={
                       <RequireAuth>
                         <BookingDetails />
