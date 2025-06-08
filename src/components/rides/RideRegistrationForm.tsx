@@ -110,6 +110,15 @@ const RideRegistrationForm = () => {
         toast.error("You must be logged in to register a ride");
         return;
       }
+
+      // Check if user is authenticated with Supabase
+      const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !supabaseUser) {
+        console.error("Authentication error:", authError);
+        toast.error("Authentication required. Please log in again.");
+        navigate('/login');
+        return;
+      }
       
       // Update the user's phone number if provided
       if (values.phoneNumber) {
@@ -151,7 +160,7 @@ const RideRegistrationForm = () => {
       
       console.log("Submitting ride with fare:", fare, "and details:", fareData);
 
-      // Use the addRide function from context which handles both Supabase and offline modes
+      // Use the addRide function from context which handles database operations
       const rideData = {
         driver_id: user.id,
         pickup_point: values.pickupPoint,
@@ -172,11 +181,12 @@ const RideRegistrationForm = () => {
         throw new Error("Failed to register ride");
       }
       
-      toast.success('Ride registered successfully');
+      toast.success('Ride registered successfully!');
       navigate('/');
     } catch (error) {
       console.error("Error registering ride:", error);
-      toast.error('Ride registration failed: ' + (error as Error).message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to register ride: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -244,7 +254,7 @@ const RideRegistrationForm = () => {
           disabled={isLoading}
         >
           <Car className="mr-2 h-4 w-4" />
-          Register Ride
+          {isLoading ? 'Registering...' : 'Register Ride'}
         </Button>
       </form>
     </Form>

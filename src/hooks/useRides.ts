@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateDistance } from '@/components/MapComponent';
@@ -197,6 +198,15 @@ export const useRides = () => {
         setError(null);
         console.log("Fetching all rides from Supabase");
         
+        // Check if user is authenticated
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.log("No authenticated user found");
+          setRides([]);
+          setLoading(false);
+          return;
+        }
+        
         const { data, error } = await supabase
           .from('rides')
           .select(`
@@ -282,6 +292,17 @@ export const useRides = () => {
   const addRide = async (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => {
     try {
       console.log("Adding new ride:", ride);
+      
+      // Check if user is authenticated before adding ride
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User must be authenticated to add a ride");
+      }
+
+      // Validate required fields
+      if (!ride.pickup_point || !ride.destination || !ride.pickup_date) {
+        throw new Error("Missing required fields: pickup_point, destination, or pickup_date");
+      }
       
       const { data: newRide, error } = await supabase
         .from('rides')

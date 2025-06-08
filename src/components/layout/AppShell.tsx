@@ -26,7 +26,17 @@ const AppShell = ({ children }: AppShellProps) => {
       >
         {children}
       </motion.main>
-      <Toaster position="top-center" />
+      <Toaster 
+        position="top-center" 
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'var(--background)',
+            color: 'var(--foreground)',
+            border: '1px solid var(--border)',
+          },
+        }}
+      />
       {/* Always show bottom navigation except on login/signup */}
       {!hideNavbar && <BottomNavigation />}
     </div>
