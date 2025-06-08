@@ -36,7 +36,8 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
   
   useEffect(() => {
     console.log("Rides provider initialized/refreshed", refreshTrigger);
-  }, [refreshTrigger]);
+    console.log("Current user:", user?.id);
+  }, [refreshTrigger, user]);
   
   const refreshRides = async () => {
     console.log("Manually refreshing rides");
@@ -55,13 +56,27 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
     loading: ridesData.loading,
     error: ridesData.error,
     addRide: async (ride) => {
+      console.log("RidesProvider: Adding ride", ride);
+      console.log("Current user in provider:", user?.id);
+      
+      if (!user) {
+        console.error("No user found when trying to add ride");
+        toast.error('You must be logged in to register a ride');
+        throw new Error('Authentication required');
+      }
+      
       try {
-        const result = await ridesData.addRide(ride);
+        const result = await ridesData.addRide({
+          ...ride,
+          driver_id: user.id
+        });
+        console.log("RidesProvider: Ride added successfully", result);
         toast.success('Ride registered successfully');
         return result;
       } catch (error) {
-        console.error("Error adding ride:", error);
-        toast.error('Failed to register ride. Please try again.');
+        console.error("RidesProvider: Error adding ride:", error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to register ride';
+        toast.error(errorMessage);
         throw error;
       }
     },
@@ -79,10 +94,8 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
       console.log("Searching rides with params:", { pickupPoint, destination, date });
       console.log("Available rides for search:", ridesData.rides.length);
       
-      // Filter out the current user's own rides from search results
       const availableRides = ridesData.rides.filter(ride => ride.driver_id !== user?.id);
       
-      // If both inputs are empty, return all available rides (excluding user's own)
       if (!pickupPoint && !destination) {
         return availableRides;
       }
@@ -90,7 +103,6 @@ export const RidesProvider = ({ children }: RidesProviderProps) => {
       const normalizedPickup = pickupPoint?.toLowerCase().trim() || '';
       const normalizedDest = destination?.toLowerCase().trim() || '';
       
-      // Filter rides based on search criteria with improved matching
       const results = availableRides.filter(ride => {
         const ridePickup = ride.pickup_point.toLowerCase();
         const rideDest = ride.destination.toLowerCase();

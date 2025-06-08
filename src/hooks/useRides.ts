@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { calculateDistance } from '@/components/MapComponent';
@@ -20,7 +21,6 @@ export interface Ride {
   created_at: Date;
 }
 
-// Helper function to convert an address to coordinates using OpenStreetMap Nominatim API
 export const geocodeAddress = async (address: string): Promise<{lat: number, lng: number} | null> => {
   if (!address || address.trim() === '') {
     console.log("Empty address provided for geocoding");
@@ -57,14 +57,12 @@ export const geocodeAddress = async (address: string): Promise<{lat: number, lng
     console.log("Using fallback coordinates");
     const hashValue = address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
-    // Generate realistic coordinates for India
     const lat = 13 + (hashValue % 15) / 10;
     const lng = 77 + (hashValue % 20) / 10;
     
     return { lat, lng };
   } catch (error) {
     console.error("Geocoding error:", error);
-    // Default coordinates (Bangalore)
     return { lat: 12.9716, lng: 77.5946 };
   }
 };
@@ -78,7 +76,6 @@ export interface FareCalculationResult {
   surgeFactor: number;
 }
 
-// Simplified pricing: Rs. 3 per kilometer with minimum fare of Rs. 15
 export const calculateFare = async (
   pickupPoint: string,
   destination: string
@@ -86,7 +83,6 @@ export const calculateFare = async (
   try {
     console.log("Calculating fare for:", { pickupPoint, destination });
     
-    // Convert addresses to coordinates
     const pickupCoords = await geocodeAddress(pickupPoint);
     const destCoords = await geocodeAddress(destination);
     
@@ -100,7 +96,6 @@ export const calculateFare = async (
       destination: destCoords
     });
     
-    // Calculate distance with higher precision using Haversine formula
     const distanceKm = calculateDistance(
       pickupCoords.lat, 
       pickupCoords.lng, 
@@ -110,27 +105,23 @@ export const calculateFare = async (
     
     console.log("Calculated distance:", distanceKm, "km");
     
-    // New pricing formula: Rs. 3 per kilometer
     const perKmRate = 3;
     const calculatedFare = Math.round(distanceKm * perKmRate);
-    
-    // Ensure minimum fare of Rs. 15
     const finalFare = Math.max(calculatedFare, 15);
     
     const result = {
       fare: finalFare,
-      distance: Math.round(distanceKm * 10) / 10, // Round to 1 decimal place
-      baseFare: 15, // Minimum fare
-      distanceCost: Math.max(0, calculatedFare - 15), // Additional cost beyond minimum
-      timeCost: 0, // Not used in current formula
-      surgeFactor: 1.0 // Not used in current formula
+      distance: Math.round(distanceKm * 10) / 10,
+      baseFare: 15,
+      distanceCost: Math.max(0, calculatedFare - 15),
+      timeCost: 0,
+      surgeFactor: 1.0
     };
     
     console.log("Fare calculation result:", result);
     return result;
   } catch (error) {
     console.error("Error calculating fare:", error);
-    // Default fare if calculation fails
     return {
       fare: 30,
       distance: 10,
@@ -152,7 +143,6 @@ export const useRides = () => {
     setRefreshCounter(prev => prev + 1);
   }, []);
 
-  // Load rides from Supabase with better error handling
   useEffect(() => {
     const fetchRides = async () => {
       try {
@@ -160,7 +150,6 @@ export const useRides = () => {
         setError(null);
         console.log("Fetching all rides from Supabase");
         
-        // Check if we have a valid session first
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           console.error("Session error:", sessionError);
@@ -255,57 +244,83 @@ export const useRides = () => {
     };
   }, [refreshCounter]);
 
-  // Add a new ride with improved error handling and retry logic
   const addRide = async (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => {
     try {
-      console.log("Adding new ride:", ride);
-      
-      // Check session before attempting to add ride
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        throw new Error("Authentication required to add ride");
-      }
+      console.log("useRides: Adding new ride:", ride);
       
       // Validate required fields
-      if (!ride.pickup_point || !ride.destination || !ride.pickup_date) {
-        throw new Error("Missing required fields: pickup point, destination, or date");
+      if (!ride.pickup_point || !ride.destination || !ride.pickup_date || !ride.driver_id) {
+        const missingFields = [];
+        if (!ride.pickup_point) missingFields.push('pickup_point');
+        if (!ride.destination) missingFields.push('destination');
+        if (!ride.pickup_date) missingFields.push('pickup_date');
+        if (!ride.driver_id) missingFields.push('driver_id');
+        
+        console.error("Missing required fields:", missingFields);
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
+      
+      // Check session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        console.error("Session error during ride creation:", sessionError);
+        throw new Error("Authentication error");
+      }
+      
+      if (!session) {
+        console.error("No session found during ride creation");
+        throw new Error("You must be logged in to register a ride");
+      }
+      
+      console.log("Session validated, proceeding with insert");
+      
+      const insertData = {
+        driver_id: ride.driver_id,
+        pickup_point: ride.pickup_point.trim(),
+        destination: ride.destination.trim(),
+        pickup_date: ride.pickup_date,
+        pickup_time_start: ride.pickup_time_start,
+        pickup_time_end: ride.pickup_time_end,
+        car_name: ride.car_name.trim(),
+        fare: ride.fare,
+        is_courier_available: ride.is_courier_available || false,
+        luggage_capacity: ride.luggage_capacity || null,
+        seats: ride.seats
+      };
+      
+      console.log("Data to insert:", insertData);
       
       const { data: newRide, error } = await supabase
         .from('rides')
-        .insert({
-          driver_id: ride.driver_id,
-          pickup_point: ride.pickup_point.trim(),
-          destination: ride.destination.trim(),
-          pickup_date: ride.pickup_date,
-          pickup_time_start: ride.pickup_time_start,
-          pickup_time_end: ride.pickup_time_end,
-          car_name: ride.car_name.trim(),
-          fare: ride.fare,
-          is_courier_available: ride.is_courier_available,
-          luggage_capacity: ride.luggage_capacity,
-          seats: ride.seats
-        })
+        .insert(insertData)
         .select()
         .single();
         
       if (error) {
-        console.error("Error adding ride:", error);
-        throw new Error(`Failed to register ride: ${error.message}`);
+        console.error("Supabase insert error:", error);
+        console.error("Error code:", error.code);
+        console.error("Error details:", error.details);
+        console.error("Error hint:", error.hint);
+        console.error("Error message:", error.message);
+        throw new Error(`Database error: ${error.message}`);
+      }
+      
+      if (!newRide) {
+        console.error("No data returned from insert");
+        throw new Error("Failed to create ride - no data returned");
       }
       
       console.log("New ride added successfully:", newRide);
       refreshRides();
       return newRide;
     } catch (err) {
-      console.error("Error adding ride:", err);
+      console.error("Error in addRide:", err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(new Error(errorMessage));
       throw new Error(errorMessage);
     }
   };
 
-  // Remove a ride
   const removeRide = async (rideId: string) => {
     try {
       console.log("Removing ride:", rideId);
@@ -329,7 +344,6 @@ export const useRides = () => {
     }
   };
 
-  // Search for rides
   const searchRides = (
     pickupPoint: string,
     destination: string,

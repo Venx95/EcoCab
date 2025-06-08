@@ -50,6 +50,8 @@ const RideRegistrationForm = () => {
   const { user } = useUser();
   const { calculateFare, addRide } = useRidesContext();
 
+  console.log("RideRegistrationForm: Current user:", user?.id);
+
   const form = useForm<RideFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -70,7 +72,6 @@ const RideRegistrationForm = () => {
   const pickupPoint = form.watch('pickupPoint');
   const destination = form.watch('destination');
 
-  // Create memoized function to update fare calculation
   const updateFareCalculation = useCallback(async () => {
     if (pickupPoint.length > 2 && destination.length > 2) {
       try {
@@ -94,7 +95,6 @@ const RideRegistrationForm = () => {
     }
   }, [pickupPoint, destination, calculateFare]);
 
-  // Update fare when locations change
   useEffect(() => {
     if (pickupPoint && destination) {
       updateFareCalculation();
@@ -102,7 +102,11 @@ const RideRegistrationForm = () => {
   }, [pickupPoint, destination, updateFareCalculation]);
 
   const onSubmit = async (values: RideFormValues) => {
+    console.log("Form submitted with values:", values);
+    console.log("Current user in submit:", user?.id);
+    
     if (!user) {
+      console.error("No user found during form submission");
       toast.error("You must be logged in to register a ride");
       return;
     }
@@ -124,14 +128,12 @@ const RideRegistrationForm = () => {
           surgeFactor: fareDetails?.surgeFactor || 1.0
         };
       } else {
-        // Calculate fare before submitting
         fareData = await calculateFare(values.pickupPoint, values.destination);
         fare = fareData.fare;
       }
       
       console.log("Submitting ride with fare:", fare, "and details:", fareData);
 
-      // Prepare ride data
       const rideData = {
         driver_id: user.id,
         pickup_point: values.pickupPoint,
@@ -146,16 +148,19 @@ const RideRegistrationForm = () => {
         seats: values.seats,
       };
       
+      console.log("Final ride data being submitted:", rideData);
+      
       const result = await addRide(rideData);
       
       if (!result) {
-        throw new Error("Failed to register ride");
+        throw new Error("Failed to register ride - no result returned");
       }
       
+      console.log("Ride registered successfully:", result);
       toast.success('Ride registered successfully!');
       navigate('/');
     } catch (error) {
-      console.error("Error registering ride:", error);
+      console.error("Error during ride submission:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast.error(`Failed to register ride: ${errorMessage}`);
     } finally {
@@ -189,7 +194,6 @@ const RideRegistrationForm = () => {
             isCourierAvailable={isCourierAvailable}
           />
           
-          {/* Phone Number Field */}
           <div className="space-y-2">
             <div className="form-group">
               <label htmlFor="phoneNumber" className="text-sm font-medium">Phone Number</label>
