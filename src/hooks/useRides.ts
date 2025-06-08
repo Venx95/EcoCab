@@ -28,7 +28,6 @@ export const geocodeAddress = async (address: string): Promise<{lat: number, lng
   }
   
   try {
-    // First try using precise address
     console.log("Geocoding address:", address);
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`
@@ -43,14 +42,13 @@ export const geocodeAddress = async (address: string): Promise<{lat: number, lng
     console.log("Geocoding results:", data);
     
     if (data && data.length > 0) {
-      // Get the first result, which is considered the best match
       return { 
         lat: parseFloat(data[0].lat), 
         lng: parseFloat(data[0].lon) 
       };
     }
     
-    // Try again with a simplified version of the address (just the first part before any comma)
+    // Try again with a simplified version of the address
     const simplifiedAddress = address.split(',')[0].trim();
     if (simplifiedAddress !== address) {
       console.log("Trying with simplified address:", simplifiedAddress);
@@ -74,9 +72,9 @@ export const geocodeAddress = async (address: string): Promise<{lat: number, lng
     console.log("Using fallback coordinates");
     const hashValue = address.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
-    // Generate somewhat realistic looking coordinates
-    const lat = 13 + (hashValue % 15) / 10; // Latitude roughly around India
-    const lng = 77 + (hashValue % 20) / 10; // Longitude roughly around India
+    // Generate realistic coordinates for India
+    const lat = 13 + (hashValue % 15) / 10;
+    const lng = 77 + (hashValue % 20) / 10;
     
     return { lat, lng };
   } catch (error) {
@@ -95,11 +93,10 @@ export interface FareCalculationResult {
   surgeFactor: number;
 }
 
-// Calculate dynamic pricing based on distance
+// New simplified pricing: Rs. 3 per kilometer
 export const calculateFare = async (
   pickupPoint: string,
-  destination: string,
-  basePrice: number = 25
+  destination: string
 ): Promise<FareCalculationResult> => {
   try {
     console.log("Calculating fare for:", { pickupPoint, destination });
@@ -118,7 +115,7 @@ export const calculateFare = async (
       destination: destCoords
     });
     
-    // Calculate distance using the utility function
+    // Calculate distance with higher precision
     const distanceKm = calculateDistance(
       pickupCoords.lat, 
       pickupCoords.lng, 
@@ -128,39 +125,20 @@ export const calculateFare = async (
     
     console.log("Calculated distance:", distanceKm, "km");
     
-    // Fare components based on Uber/Ola style pricing
-    const baseFare = basePrice; // Base fare in Rupees
-    const perKmRate = 8; // Per km rate in Rupees
-    const distanceCost = distanceKm * perKmRate;
+    // New pricing formula: Rs. 3 per kilometer
+    const perKmRate = 3;
+    const fare = Math.round(distanceKm * perKmRate);
     
-    // Time-based pricing
-    const estimatedMinutesPerKm = 3; // Average time per km
-    const estimatedTripTimeMinutes = distanceKm * estimatedMinutesPerKm;
-    const perMinuteRate = 2; // Per minute rate in Rupees
-    const timeCost = estimatedTripTimeMinutes * perMinuteRate;
-    
-    // Surge pricing based on time of day
-    const hour = new Date().getHours();
-    let surgeFactor = 1.0;
-    
-    // Peak hours: morning rush (7-10 AM) and evening rush (4-7 PM)
-    if ((hour >= 7 && hour <= 10) || (hour >= 16 && hour <= 19)) {
-      surgeFactor = 1.4;
-    }
-    
-    // Calculate final fare with surge pricing
-    const calculatedFare = (baseFare + distanceCost + timeCost) * surgeFactor;
-    
-    // Ensure minimum fare and round to nearest integer
-    const finalFare = Math.max(Math.round(calculatedFare), baseFare);
+    // Ensure minimum fare of Rs. 15
+    const finalFare = Math.max(fare, 15);
     
     const result = {
       fare: finalFare,
       distance: Math.round(distanceKm * 10) / 10, // Round to 1 decimal place
-      baseFare: Math.round(baseFare),
-      distanceCost: Math.round(distanceCost),
-      timeCost: Math.round(timeCost),
-      surgeFactor
+      baseFare: 15, // Minimum fare for display purposes
+      distanceCost: Math.round((distanceKm * perKmRate) - 15), // Additional cost beyond minimum
+      timeCost: 0, // Not used in new formula
+      surgeFactor: 1.0 // Not used in new formula
     };
     
     console.log("Fare calculation result:", result);
@@ -169,11 +147,11 @@ export const calculateFare = async (
     console.error("Error calculating fare:", error);
     // Default fare if calculation fails
     return {
-      fare: Math.round(basePrice * 5),
-      distance: 5,
-      baseFare: basePrice,
-      distanceCost: basePrice * 2,
-      timeCost: basePrice * 2,
+      fare: 30,
+      distance: 10,
+      baseFare: 15,
+      distanceCost: 15,
+      timeCost: 0,
       surgeFactor: 1.0
     };
   }
@@ -189,7 +167,7 @@ export const useRides = () => {
     setRefreshCounter(prev => prev + 1);
   }, []);
 
-  // Load rides from Supabase on mount
+  // Load rides from Supabase
   useEffect(() => {
     const fetchRides = async () => {
       try {
@@ -251,7 +229,7 @@ export const useRides = () => {
       } catch (err) {
         console.error("Error fetching rides:", err);
         setError(err as Error);
-        setRides([]); // Clear rides on error
+        setRides([]);
         setLoading(false);
       }
     };
@@ -278,7 +256,7 @@ export const useRides = () => {
     };
   }, [refreshCounter]);
 
-  // Add a new ride - directly to database only
+  // Add a new ride
   const addRide = async (ride: Omit<Ride, 'id' | 'created_at' | 'driverName' | 'driverPhoto'>) => {
     try {
       console.log("Adding new ride:", ride);
@@ -340,7 +318,7 @@ export const useRides = () => {
     }
   };
 
-  // Search for rides with improved matching logic
+  // Search for rides
   const searchRides = (
     pickupPoint: string,
     destination: string,
